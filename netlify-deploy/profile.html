@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/_styles.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">VFR ROUTER ▸ PROFILE</span>
+  </header>
+
+  <h1>Your profile</h1>
+  <p class="lead">Edit your details and set a default departure airport that pre-fills on the router.</p>
+
+  <div class="panel">
+    <div class="panel-title">Account</div>
+    <form id="profileForm">
+      <label>Email <span class="muted">(cannot change)</span></label>
+      <input id="email" type="email" disabled>
+
+      <div class="row">
+        <div>
+          <label for="firstName">First name *</label>
+          <input id="firstName" type="text" required>
+        </div>
+        <div>
+          <label for="lastName">Last name *</label>
+          <input id="lastName" type="text" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="callSign">Call sign</label>
+          <input id="callSign" type="text" placeholder="e.g. EC-XYZ">
+        </div>
+        <div>
+          <label for="aircraftType">Aircraft type</label>
+          <input id="aircraftType" type="text" placeholder="e.g. SR22, C172">
+        </div>
+      </div>
+
+      <label for="defaultDep">Default departure airport (4-letter ICAO)</label>
+      <input id="defaultDep" type="text" maxlength="4" placeholder="LEMU" style="text-transform:uppercase">
+      <div class="hint">Pre-fills the router's Departure field. Leave blank to disable.</div>
+
+      <button class="btn" type="submit" id="saveBtn">▸ Save profile</button>
+    </form>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Account meta</div>
+    <div id="meta" class="muted" style="font-size:12px;font-family:var(--font-mono)"></div>
+  </div>
+</div>
+
+<script src="/_nav.js"></script>
+<script>
+(async () => {
+  const user = await renderNav('profile');
+  if (!user) { location.href = '/login.html'; return; }
+
+  document.getElementById('email').value = user.email;
+  document.getElementById('firstName').value = user.firstName || '';
+  document.getElementById('lastName').value = user.lastName || '';
+  document.getElementById('callSign').value = user.callSign || '';
+  document.getElementById('aircraftType').value = user.aircraftType || '';
+  document.getElementById('defaultDep').value = user.defaultDep || '';
+  document.getElementById('meta').textContent =
+    `Registered ${new Date(user.createdAt).toLocaleString()}${user.isAdmin ? ' · ADMIN' : ''}`;
+})();
+
+document.getElementById('profileForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('status');
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  status.className = 'status show info';
+  status.textContent = 'Saving…';
+  try {
+    const resp = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        firstName: document.getElementById('firstName').value.trim(),
+        lastName: document.getElementById('lastName').value.trim(),
+        callSign: document.getElementById('callSign').value.trim(),
+        aircraftType: document.getElementById('aircraftType').value.trim(),
+        defaultDep: document.getElementById('defaultDep').value.trim().toUpperCase(),
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      status.className = 'status show err';
+      status.textContent = `✗ ${data.error || resp.status}`;
+    } else {
+      status.className = 'status show ok';
+      status.textContent = `✓ Saved`;
+    }
+  } catch (err) {
+    status.className = 'status show err';
+    status.textContent = `✗ ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

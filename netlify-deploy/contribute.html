@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — Contribute a Pilot Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #111720;
+    --border: #1e2d3d;
+    --accent: #00d4ff;
+    --green: #00ff88;
+    --red: #ff4455;
+    --amber: #ffaa00;
+    --text: #c8d8e8;
+    --muted: #4a6080;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-body: 'Barlow', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:var(--bg); color:var(--text); font-family:var(--font-body);
+    min-height:100vh; padding:24px 16px;
+  }
+  .container { max-width:760px; margin:0 auto; }
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:16px; border-bottom:1px solid var(--border); margin-bottom:24px;
+  }
+  .logo { font-family:var(--font-mono); font-size:18px; color:var(--accent); letter-spacing:2px; }
+  .back-link {
+    color:var(--muted); text-decoration:none; font-size:13px;
+    border:1px solid var(--border); padding:6px 12px; border-radius:3px;
+  }
+  .back-link:hover { color:var(--accent); border-color:var(--accent); }
+
+  h1 { font-size:22px; font-weight:600; margin-bottom:8px; }
+  .lead { color:var(--muted); font-size:14px; line-height:1.5; margin-bottom:24px; }
+  .panel {
+    background:var(--panel); border:1px solid var(--border); border-radius:4px;
+    padding:20px; margin-bottom:20px;
+  }
+  .panel-title {
+    font-family:var(--font-mono); font-size:11px; letter-spacing:2px;
+    color:var(--muted); text-transform:uppercase; margin-bottom:12px;
+  }
+  .drop-zone {
+    border:2px dashed var(--border); border-radius:6px; padding:48px 24px;
+    text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color:var(--accent); background:rgba(0,212,255,0.04);
+  }
+  .drop-zone .big { font-size:48px; color:var(--muted); margin-bottom:8px; }
+  .drop-zone .hint { color:var(--muted); font-size:13px; }
+  .drop-zone strong { color:var(--accent); }
+  input[type=file] { display:none; }
+
+  .btn {
+    display:inline-block; padding:8px 16px; font-family:var(--font-mono);
+    font-size:12px; background:var(--accent); color:var(--bg); border:none;
+    border-radius:3px; cursor:pointer; text-decoration:none;
+  }
+  .btn:hover { filter:brightness(1.1); }
+  .btn-secondary { background:transparent; color:var(--text); border:1px solid var(--border); }
+
+  ul.route-list { list-style:none; padding:0; margin:0; }
+  ul.route-list li {
+    padding:12px 0; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  }
+  ul.route-list li:last-child { border-bottom:none; }
+  .route-id { font-family:var(--font-mono); font-size:14px; color:var(--accent); }
+  .route-meta { color:var(--muted); font-size:11px; margin-top:4px; }
+  .delete-btn {
+    background:transparent; border:1px solid var(--border); color:var(--red);
+    padding:4px 10px; cursor:pointer; border-radius:3px; font-family:var(--font-mono);
+    font-size:11px;
+  }
+  .delete-btn:hover { background:var(--red); color:#000; }
+  .empty { color:var(--muted); font-style:italic; padding:8px 0; }
+
+  .status {
+    padding:10px 14px; border-radius:3px; margin-top:14px; font-size:13px;
+    display:none;
+  }
+  .status.show { display:block; }
+  .status.ok { background:rgba(0,255,136,0.08); color:var(--green); border:1px solid var(--green); }
+  .status.err { background:rgba(255,68,85,0.08); color:var(--red); border:1px solid var(--red); }
+  .status.info { background:rgba(0,212,255,0.06); color:var(--accent); border:1px solid var(--border); }
+
+  .preview {
+    margin-top:14px; padding:12px; background:rgba(0,0,0,0.2);
+    border:1px solid var(--border); border-radius:3px;
+    font-family:var(--font-mono); font-size:12px; white-space:pre-wrap;
+    max-height:240px; overflow:auto;
+  }
+
+  .filter-tab {
+    background:transparent; color:var(--muted); border:1px solid var(--border);
+    padding:6px 14px; font-family:var(--font-mono); font-size:11px;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer; border-radius:3px;
+  }
+  .filter-tab:hover { color:var(--accent); border-color:var(--accent); }
+  .filter-tab.active {
+    background:var(--accent); color:var(--bg); border-color:var(--accent);
+  }
+  .owner-badge, .meta-badge {
+    display:inline-block; font-family:var(--font-mono); font-size:10px;
+    padding:2px 6px; border-radius:2px; margin-left:6px;
+    background:rgba(0,212,255,0.12); color:var(--accent); border:1px solid var(--border);
+  }
+  .owner-badge.mine { background:rgba(0,255,136,0.12); color:var(--green); }
+  .meta-badge.country { background:rgba(255,170,0,0.10); color:var(--amber); }
+  .meta-badge.outcome-planned  { background:rgba(74,96,128,0.20); color:var(--muted); }
+  .meta-badge.outcome-accepted { background:rgba(0,255,136,0.12); color:var(--green); }
+  .meta-badge.outcome-rejected { background:rgba(255,68,85,0.12); color:var(--red); }
+  .meta-badge.outcome-amended  { background:rgba(255,170,0,0.12); color:var(--amber); }
+  .meta-badge.status-pending   { background:rgba(255,170,0,0.18); color:var(--amber); }
+  .meta-badge.status-rejected  { background:rgba(255,68,85,0.18); color:var(--red); }
+
+  .edit-panel {
+    margin-top:8px; padding:12px; background:rgba(0,0,0,0.25);
+    border:1px solid var(--border); border-radius:3px;
+    display:grid; gap:8px; grid-template-columns:1fr 1fr;
+  }
+  .edit-panel .full { grid-column:1 / span 2; }
+  .edit-panel label {
+    display:block; font-family:var(--font-mono); font-size:10px;
+    color:var(--muted); text-transform:uppercase; letter-spacing:1px;
+    margin-bottom:4px;
+  }
+  .edit-panel input[type=text], .edit-panel input[type=date],
+  .edit-panel input[type=number], .edit-panel select, .edit-panel textarea {
+    width:100%; padding:6px 8px; background:rgba(0,0,0,0.3);
+    color:var(--text); border:1px solid var(--border); border-radius:3px;
+    font-family:var(--font-mono); font-size:12px;
+  }
+  .edit-panel textarea { resize:vertical; min-height:60px; }
+  .edit-panel .actions { display:flex; gap:8px; justify-content:flex-end; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <span class="logo">VFR ROUTER ▸ CONTRIBUTE</span>
+    <a href="/" class="back-link">◂ Back to router</a>
+  </header>
+
+  <h1>Centralised Flight-Plan Knowledge</h1>
+  <p class="lead">
+    Upload a validated SkyDemon PLOG PDF. Every upload joins the centralised
+    corpus — the router's primary source of truth. When planning a new flight,
+    the router first looks for an exact dep→dest match in the corpus and
+    returns the pilot's waypoint sequence and altitudes. When there is no
+    exact match, the AI assist mines the corpus for transferable patterns
+    (VFR sectors, corridor usage, altitudes) from nearby flights to inform
+    A* + AIP/airspace data. Ownership is recorded but visibility is global —
+    every pilot benefits from every upload.
+  </p>
+
+  <div class="panel">
+    <div class="panel-title">Upload</div>
+    <div class="drop-zone" id="dropZone">
+      <div class="big">⬆</div>
+      <div><strong>Click to choose a PDF</strong> or drag-and-drop one here</div>
+      <div class="hint">SkyDemon "Print PLOG" output — saved as PDF</div>
+    </div>
+    <input type="file" id="plogFile" accept="application/pdf">
+    <div class="status" id="status"></div>
+    <div class="preview" id="preview" style="display:none"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Browse the corpus</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="filter-tab active" data-scope="all" id="tabAll">All plans</button>
+      <button class="filter-tab" data-scope="mine" id="tabMine">My plans</button>
+    </div>
+    <input type="text" id="searchInput" placeholder="Search by ICAO, name, contributor, source…" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:13px" />
+    <div style="margin-top:12px;font-family:var(--font-mono);font-size:11px;color:var(--muted)" id="corpusCount">—</div>
+    <ul class="route-list" id="corpusList"></ul>
+  </div>
+
+</div>
+
+<script>
+// Unified corpus client. There is one Netlify Blob store (vfr-logs) holding
+// every uploaded flight plan; the filter tabs select All vs Mine. Nothing is
+// persisted in localStorage. See [[project_corpus_architecture]].
+
+let _allLogs = [];          // approved corpus from /api/logs?scope=all
+let _myLogs  = [];          // caller's own logs from /api/logs?scope=mine (any status)
+let _scope = 'all';         // active tab: 'all' or 'mine'
+let _myEmail = null;        // populated by the auth check on init
+let _editingId = null;      // id of the row whose inline editor is open
+
+function matchQuery(r, q) {
+  if (!q) return true;
+  q = q.toLowerCase();
+  return (r.dep || '').toLowerCase().includes(q)
+      || (r.dest || '').toLowerCase().includes(q)
+      || (r.source || '').toLowerCase().includes(q)
+      || (r.note || '').toLowerCase().includes(q)
+      || (r.contributorName || '').toLowerCase().includes(q)
+      || (r.email || '').toLowerCase().includes(q);
+}
+
+function currentSearch() {
+  return (document.getElementById('searchInput')?.value || '').trim();
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function outcomeBadge(outcome) {
+  if (!outcome) return '';
+  const label = outcome.toUpperCase();
+  return `<span class="meta-badge outcome-${outcome}">${label}</span>`;
+}
+
+function statusBadge(status) {
+  if (!status || status === 'approved') return '';
+  return `<span class="meta-badge status-${status}">${status.toUpperCase()}</span>`;
+}
+
+function metaLine(r) {
+  const parts = [];
+  parts.push(`${(r.via||[]).length} fixes`);
+  parts.push(`${(r.altsFt || []).filter(a => a != null).length} altitudes`);
+  if (r.aircraft) parts.push(`aircraft ${escapeAttr(r.aircraft)}`);
+  if (r.flightDate) parts.push(`flown ${escapeAttr(r.flightDate)}`);
+  if (r.cruiseAltFt) parts.push(`cruise ${r.cruiseAltFt}ft`);
+  if (r.source) parts.push(escapeAttr(r.source));
+  const importedDate = r.importedAt ? new Date(r.importedAt).toLocaleString() : 'unknown';
+  parts.push(`uploaded ${importedDate}`);
+  return parts.join(' · ');
+}
+
+function editPanelHtml(r) {
+  const val = (v) => v == null ? '' : escapeAttr(String(v));
+  const sel = (cur, want) => cur === want ? ' selected' : '';
+  return `
+    <div class="edit-panel" id="edit-${escapeAttr(r.id)}">
+      <div>
+        <label>Aircraft (reg / type)</label>
+        <input type="text" id="f_aircraft" value="${val(r.aircraft)}" placeholder="EC-XYZ / SR22" maxlength="120">
+      </div>
+      <div>
+        <label>Flight date</label>
+        <input type="date" id="f_flightDate" value="${val(r.flightDate)}">
+      </div>
+      <div>
+        <label>Cruise altitude (ft)</label>
+        <input type="number" id="f_cruiseAltFt" value="${val(r.cruiseAltFt)}" min="0" max="60000" step="500" placeholder="e.g. 5500">
+      </div>
+      <div>
+        <label>ATC outcome</label>
+        <select id="f_outcome">
+          <option value=""${sel(r.outcome, null)}${sel(r.outcome, '')}>— not set —</option>
+          <option value="planned"${sel(r.outcome, 'planned')}>Planned (not yet flown)</option>
+          <option value="accepted"${sel(r.outcome, 'accepted')}>Accepted as filed</option>
+          <option value="rejected"${sel(r.outcome, 'rejected')}>Rejected</option>
+          <option value="amended"${sel(r.outcome, 'amended')}>Amended by ATC</option>
+        </select>
+      </div>
+      <div class="full">
+        <label>ATC amendments / clearance notes</label>
+        <textarea id="f_atcAmendments" maxlength="1000" placeholder="What did ATC change? Re-routes, level caps, holds, etc.">${val(r.atcAmendments)}</textarea>
+      </div>
+      <div class="full actions">
+        <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+        <button class="btn" onclick="saveEdit('${escapeAttr(r.id)}')">Save</button>
+      </div>
+    </div>`;
+}
+
+function renderCorpus() {
+  const list = document.getElementById('corpusList');
+  const countEl = document.getElementById('corpusCount');
+  const q = currentSearch();
+  // "All" shows the approved corpus (the live planner data). "Mine" shows
+  // the caller's own uploads regardless of moderation state, so pending /
+  // rejected entries are visible to their owner.
+  const scoped = _scope === 'mine' ? _myLogs : _allLogs;
+  const filtered = scoped.filter(r => matchQuery(r, q));
+  const pendingMine = _myLogs.filter(r => r.status === 'pending').length;
+  const minePending = pendingMine ? ` (${pendingMine} awaiting review)` : '';
+
+  countEl.textContent = q
+    ? `${filtered.length} of ${scoped.length} match (${_scope === 'mine' ? 'your plans' + minePending : 'approved plans in corpus'})`
+    : `${scoped.length} ${_scope === 'mine' ? 'of yours' + minePending : 'approved plans in corpus'}`;
+
+  if (!filtered.length) {
+    list.innerHTML = _scope === 'mine'
+      ? '<li class="empty">You have not uploaded any flight plans yet. Drop a PLOG PDF above.</li>'
+      : '<li class="empty">The corpus is empty. Be the first to upload a flight plan.</li>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const isMine = _myEmail && r.email === _myEmail;
+    const canEdit = isMine || window._isAdmin;
+    const ownerBadge = isMine
+      ? `<span class="owner-badge mine">YOU</span>`
+      : `<span class="owner-badge">${escapeAttr(r.contributorName || 'anonymous')}</span>`;
+    const countryBadge = r.country && r.country !== '??'
+      ? `<span class="meta-badge country">${escapeAttr(r.country)}</span>` : '';
+    const editBtn = canEdit
+      ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="setEditing('${escapeAttr(r.id)}')">↗ Edit details</button>`
+      : '';
+    const deleteBtn = canEdit
+      ? `<button class="delete-btn" onclick="deleteLog('${escapeAttr(r.id)}', '${escapeAttr(r.dep)}', '${escapeAttr(r.dest)}')">Delete</button>`
+      : '';
+    const editPanel = _editingId === r.id ? editPanelHtml(r) : '';
+    return `
+      <li style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;width:100%">
+          <div>
+            <div class="route-id">${r.dep} → ${r.dest}${ownerBadge}${countryBadge}${statusBadge(r.status)}${outcomeBadge(r.outcome)}</div>
+            <div class="route-meta">${metaLine(r)}</div>
+            ${r.status === 'pending' ? `<div class="route-meta" style="margin-top:4px;color:var(--amber)">Awaiting moderator review — not yet active in the planner.</div>` : ''}
+            ${r.status === 'rejected' ? `<div class="route-meta" style="margin-top:4px;color:var(--red)">Rejected${r.moderationReason ? ': ' + escapeAttr(r.moderationReason) : ''} — not used by the planner.</div>` : ''}
+            ${r.atcAmendments ? `<div class="route-meta" style="margin-top:4px;color:var(--amber)">ATC: ${escapeAttr(r.atcAmendments)}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            ${editBtn}
+            ${deleteBtn}
+          </div>
+        </div>
+        ${editPanel}
+      </li>`;
+  }).join('');
+}
+
+function setEditing(id) {
+  _editingId = id;
+  renderCorpus();
+  // Scroll the edit panel into view so the user doesn't have to hunt for it.
+  const panel = document.getElementById(`edit-${id}`);
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelEdit() {
+  _editingId = null;
+  renderCorpus();
+}
+
+async function saveEdit(id) {
+  const get = (i) => document.getElementById(i);
+  const payload = {
+    aircraft: get('f_aircraft').value.trim(),
+    flightDate: get('f_flightDate').value || null,
+    atcAmendments: get('f_atcAmendments').value.trim(),
+  };
+  const altVal = get('f_cruiseAltFt').value.trim();
+  payload.cruiseAltFt = altVal === '' ? null : Number(altVal);
+  const outcomeVal = get('f_outcome').value;
+  payload.outcome = outcomeVal || null;
+
+  showStatus(`Saving details for ${id}…`, 'info');
+  try {
+    const resp = await fetch(`/api/logs?id=${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showStatus(`✗ Save failed: ${data.error || resp.status}`, 'err');
+      return;
+    }
+    _editingId = null;
+    await fetchCorpus();
+    showStatus(`✓ Updated ${data.log.dep} → ${data.log.dest}`, 'ok');
+  } catch (err) {
+    showStatus(`✗ Network error: ${err.message}`, 'err');
+  }
+}
+
+async function fetchCorpus() {
+  try {
+    const [allResp, mineResp] = await Promise.all([
+      fetch('/api/logs?scope=all'),
+      fetch('/api/logs?scope=mine'),
+    ]);
+    if (!allResp.ok) throw new Error(`HTTP ${allResp.status} (all)`);
+    if (!mineResp.ok) throw new Error(`HTTP ${mineResp.status} (mine)`);
+    const allData = await allResp.json();
+    const mineData = await mineResp.json();
+    _allLogs = allData.logs || [];
+    _myLogs  = mineData.logs || [];
+  } catch (err) {
+    showStatus(`✗ Could not load the corpus: ${err.message}`, 'err');
+    _allLogs = [];
+    _myLogs = [];
+  }
+  renderCorpus();
+}
+
+async function deleteLog(id, dep, dest) {
+  if (!confirm(`Delete the corpus entry for ${dep} → ${dest}? This removes it from the centralised knowledge base.`)) return;
+  try {
+    const resp = await fetch(`/api/logs?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showStatus(`✗ Delete failed: ${data.error || resp.status}`, 'err');
+      return;
+    }
+    await fetchCorpus();
+    showStatus(`✓ Removed ${dep} → ${dest} from the corpus`, 'info');
+  } catch (err) {
+    showStatus(`✗ Network error: ${err.message}`, 'err');
+  }
+}
+
+function setScope(scope) {
+  _scope = scope === 'mine' ? 'mine' : 'all';
+  document.getElementById('tabAll').classList.toggle('active', _scope === 'all');
+  document.getElementById('tabMine').classList.toggle('active', _scope === 'mine');
+  renderCorpus();
+}
+
+// One-shot migration: anything left in the legacy localStorage corpus from
+// before cloud storage existed is uploaded to /api/logs, then the key is
+// purged. Idempotent — does nothing if the key is absent.
+async function migrateLegacyLocalCorpus() {
+  const LEGACY_KEY = 'vfr_user_corpus_v1';
+  let legacy = [];
+  try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]'); } catch {}
+  if (!Array.isArray(legacy) || !legacy.length) return;
+  showStatus(`Migrating ${legacy.length} log(s) from this browser into the corpus…`, 'info');
+  let migrated = 0, failed = 0;
+  for (const r of legacy) {
+    try {
+      const resp = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          dep: r.dep, dest: r.dest, via: r.via || [], altsFt: r.altsFt || [],
+          source: r.source || 'PLOG (migrated)', note: r.note || '',
+        }),
+      });
+      if (resp.ok) migrated++; else failed++;
+    } catch { failed++; }
+  }
+  try { localStorage.removeItem(LEGACY_KEY); } catch {}
+  if (failed) {
+    showStatus(`Migrated ${migrated} log(s); ${failed} failed. Legacy local cache cleared.`, 'err');
+  } else {
+    showStatus(`✓ Migrated ${migrated} log(s) from this browser into the corpus.`, 'ok');
+  }
+}
+
+function showStatus(msg, kind) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = `status show ${kind}`;
+}
+
+// ─── PDF PARSING ──────────────────────────────────────────────────────────
+let _pdfjsLoading = null;
+async function loadPdfJs() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  if (_pdfjsLoading) return _pdfjsLoading;
+  _pdfjsLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => reject(new Error('pdf.js failed to load'));
+    document.head.appendChild(s);
+  });
+  return _pdfjsLoading;
+}
+
+async function extractPdfText(file) {
+  const pdfjs = await loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const lines = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const rows = new Map();
+    for (const item of content.items) {
+      if (!item.str) continue;
+      const y = Math.round(item.transform[5]);
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push({ x: item.transform[4], str: item.str });
+    }
+    const ys = [...rows.keys()].sort((a, b) => b - a);
+    for (const y of ys) {
+      const row = rows.get(y).sort((a, b) => a.x - b.x).map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (row) lines.push(row);
+    }
+  }
+  return lines;
+}
+
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+function offsetPoint(p, bearingDeg, distNm) {
+  const R = 3440.065;
+  const ang = distNm / R;
+  const brg = toRad(bearingDeg);
+  const lat1 = toRad(p.lat), lon1 = toRad(p.lon);
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(ang) + Math.cos(lat1) * Math.sin(ang) * Math.cos(brg));
+  const lon2 = lon1 + Math.atan2(Math.sin(brg) * Math.sin(ang) * Math.cos(lat1),
+                                  Math.cos(ang) - Math.sin(lat1) * Math.sin(lat2));
+  return { lat: toDeg(lat2), lon: toDeg(lon2) };
+}
+
+function dmsToDecimal(s) {
+  const m = s.match(/^([NSEW])(\d{6,7})$/);
+  if (!m) return null;
+  const dir = m[1], digits = m[2];
+  let deg, min, sec;
+  if (dir === 'N' || dir === 'S') {
+    deg = +digits.slice(0,2); min = +digits.slice(2,4); sec = +digits.slice(4,6);
+  } else {
+    deg = +digits.slice(0,3); min = +digits.slice(3,5); sec = +digits.slice(5,7);
+  }
+  let val = deg + min/60 + sec/3600;
+  if (dir === 'S' || dir === 'W') val = -val;
+  return Math.round(val * 10000) / 10000;
+}
+
+function parseEuNum(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  if (s.includes('.')) return parseInt(s.replace(/\./g, ''), 10);
+  return parseFloat(s);
+}
+
+// SkyDemon PLOGs come in two table layouts:
+//   "with Level":     MSA Level Trk Trk Wind Hdg GS Dist Time FuelR ETA ATA  (9 leg tokens)
+//   "without Level":  MSA       Trk Trk Wind Hdg GS Dist Time FuelR ETA ATA  (8 leg tokens)
+// In the without-Level layout the cruise altitude is given once in the footer
+// "Levels are X ft" and applied to every leg.
+function parseLegTokens(rest, opts) {
+  if (!rest) return null;
+  opts = opts || { hasLevel: true };
+  const tokens = rest.replace(/\s*\(\d+\)\s*$/, '').split(/\s+/).filter(Boolean);
+  const minTokens = opts.hasLevel ? 7 : 6;
+  if (tokens.length < minTokens) return null;
+  if (!/^[\d.,]+$/.test(tokens[0])) return null;
+  let i = 0;
+  const msaFt   = parseEuNum(tokens[i++]);
+  const levelFt = opts.hasLevel ? parseEuNum(tokens[i++]) : null;
+  const trkT    = +tokens[i++];
+  const trkM    = +tokens[i++];
+  const wind    = tokens[i++];
+  const hdg     = +tokens[i++];
+  const gsKt    = +tokens[i++];
+  const distNm  = tokens[i] != null ? parseEuNum(tokens[i++]) : null;
+  const timeMin = tokens[i] != null ? +tokens[i++] : null;
+  return { msaFt, levelFt, trkT, trkM, wind, hdg, gsKt, distNm, timeMin };
+}
+
+// "Levels are 7.500 ft" — scan all lines, return cruise altitude in feet or null.
+function findCruiseLevelFt(lines) {
+  for (const line of lines) {
+    const m = line.match(/Levels?\s+are\s+([\d.,]+)\s*ft/i);
+    if (m) return parseEuNum(m[1]);
+  }
+  return null;
+}
+
+// Lines starting with a 4-letter ICAO can carry:
+//   "<ICAO> <name>   <elev> ft (<hPa> hPa)"          (dep with elevation only)
+//   "<ICAO> <name>   <leg tokens>"                    (dest with leg, elev on next line)
+//   "<ICAO> <name>   <elev> ft (<hPa> hPa)  <leg>"   (rare; both inline)
+// Token-split avoids the regex gobbling problem the old icaoMatch had.
+function parseAirportLine(line) {
+  if (!/^[A-Z]{4}\s/.test(line)) return null;
+  if (/^N\d{6}/.test(line)) return null;  // coord line, not ICAO
+  const parts = line.split(/\s+/);
+  const icao = parts[0];
+  // Leg tokens begin at the first numeric-like token followed by either:
+  //   (a) two small integers (TrkT, TrkM) — old no-Level layout
+  //   (b) another numeric-like token (Level), then two small integers — new layout
+  // Skip the elevation pattern "<n> ft (<hPa> hPa)".
+  let legStart = -1;
+  for (let i = 1; i < parts.length - 2; i++) {
+    if (!/^[\d.,]+$/.test(parts[i])) continue;
+    if (parts[i + 1] === 'ft') continue;
+    // Old layout: MSA followed directly by two track integers
+    if (/^\d{1,3}$/.test(parts[i + 1]) && /^\d{1,3}$/.test(parts[i + 2])) {
+      legStart = i;
+      break;
+    }
+    // New layout: MSA, Level (numeric-like), TrkT, TrkM
+    if (i + 3 < parts.length &&
+        /^[\d.,]+$/.test(parts[i + 1]) &&
+        /^\d{1,3}$/.test(parts[i + 2]) &&
+        /^\d{1,3}$/.test(parts[i + 3])) {
+      legStart = i;
+      break;
+    }
+  }
+  const middle = (legStart > 0 ? parts.slice(1, legStart) : parts.slice(1)).join(' ');
+  const legTail = legStart > 0 ? parts.slice(legStart).join(' ') : '';
+  const elevMatch = middle.match(/^(.+?)\s+(\d+)\s*ft\s*\([^)]+\)\s*$/);
+  return elevMatch
+    ? { icao, name: elevMatch[1].trim(), elev: +elevMatch[2], legTail }
+    : { icao, name: middle.trim(), elev: null, legTail };
+}
+
+function parsePlogLines(lines) {
+  // Header detection: MSA + Trk are universal; Level is optional.
+  let startIdx = -1, hasLevel = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/\bMSA\b/.test(lines[i]) && /\bTrk\b/.test(lines[i])) {
+      startIdx = i;
+      hasLevel = /\bLevel\b/.test(lines[i]);
+      break;
+    }
+  }
+  if (startIdx < 0) throw new Error('Could not find waypoint table header in PDF — is this a SkyDemon PLOG?');
+  startIdx++;
+
+  const cruiseFt = findCruiseLevelFt(lines);
+  const opts = { hasLevel };
+
+  const waypoints = [];
+  let current = null;
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^(?:SS\s|Speeds\s+are\b)/i.test(line)) break;
+
+    const ap = parseAirportLine(line);
+    if (ap) {
+      current = { icao: ap.icao, name: ap.name, elev: ap.elev, leg: parseLegTokens(ap.legTail, opts) };
+      waypoints.push(current);
+      continue;
+    }
+
+    const coordMatch = line.match(/^(N\d{6})\s+([EW]\d{7})\s+(.*)$/);
+    if (coordMatch) {
+      current = { lat: dmsToDecimal(coordMatch[1]), lon: dmsToDecimal(coordMatch[2]), leg: parseLegTokens(coordMatch[3], opts) };
+      waypoints.push(current);
+      continue;
+    }
+
+    // Named waypoint (may carry "(IDENT)" / "(VRP-...)" annotations) followed
+    // by leg tokens. Anchor on Wind pattern (DDD/SS) so the name boundary is
+    // unambiguous even with parens in the name. The optional `(?:\s+[\d.,]+)?`
+    // accepts the new-layout Level column between MSA and TrkT.
+    const namedMatch = line.match(/^([A-Za-zÀ-ÿ].*?)\s+([\d.,]+(?:\s+[\d.,]+)?\s+\d+\s+\d+\s+\d+\/\d+.+)$/);
+    if (namedMatch) {
+      // Wrapped airport-name fix: if the previous waypoint is an airport
+      // with no leg data and this line's "name" is a short continuation
+      // (single token, no parens), treat as the continuation of the airport
+      // name rather than a new via. Catches `LESB MALLORCA/Son\nBonet 4.400 4.400 ...`.
+      const candidateName = namedMatch[1].trim();
+      const prev = waypoints[waypoints.length - 1];
+      const isContinuation = prev && prev.icao && !prev.leg && /^[A-Za-zÀ-ÿ][\wÀ-ÿ.\-\/]*$/.test(candidateName);
+      if (isContinuation) {
+        prev.name = `${prev.name} ${candidateName}`.trim();
+        prev.leg = parseLegTokens(namedMatch[2], opts);
+        current = prev;
+        continue;
+      }
+      current = { name: candidateName, leg: parseLegTokens(namedMatch[2], opts) };
+      waypoints.push(current);
+      continue;
+    }
+
+    const contMatch = line.match(/^(\d+)\s*ft\s*\([^)]+\)\s+(.+)$/);
+    if (contMatch && current) {
+      current.elev = +contMatch[1];
+      current.leg = parseLegTokens(contMatch[2], opts);
+      continue;
+    }
+  }
+
+  // In the without-Level layout, populate every leg's levelFt from the footer
+  // cruise altitude. Only fills missing — never overwrites an explicit value.
+  if (!hasLevel && cruiseFt != null) {
+    for (const w of waypoints) {
+      if (!w.leg) continue;
+      if (w.leg.levelFt == null) w.leg.levelFt = cruiseFt;
+    }
+  }
+
+  // Trim trailing "lone coord" entries that are continuation references for
+  // the destination airport. New-layout PLOGs may render the dest's lat/lon
+  // and a navaid bearing on the visual line below the airport row, which the
+  // parser otherwise sees as a separate via waypoint after the dest.
+  while (waypoints.length >= 2) {
+    const last = waypoints[waypoints.length - 1];
+    const prev = waypoints[waypoints.length - 2];
+    const isLoneCoord = !last.icao && !last.name && !last.leg && (last.lat != null) && (last.lon != null);
+    if (isLoneCoord && prev.icao) {
+      // Promote the coord to the airport if it lacks one.
+      if (prev.lat == null) prev.lat = last.lat;
+      if (prev.lon == null) prev.lon = last.lon;
+      waypoints.pop();
+    } else {
+      break;
+    }
+  }
+
+  return waypoints;
+}
+
+// Resolve dep airport coord via the OpenAIP proxy so we have an anchor for back-fill.
+async function resolveAirportCoord(icao) {
+  try {
+    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=10`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const hit = (data.items || []).find(a => (a.icaoCode || '').toUpperCase() === icao);
+    if (!hit || !hit.geometry) return null;
+    return { lat: hit.geometry.coordinates[1], lon: hit.geometry.coordinates[0] };
+  } catch { return null; }
+}
+
+async function plogToValidatedRoute(waypoints, sourceLabel) {
+  if (waypoints.length < 2) throw new Error('PLOG had fewer than 2 waypoints');
+  const dep = waypoints[0].icao;
+  const dest = waypoints[waypoints.length - 1].icao;
+  if (!dep) throw new Error('First waypoint is not an ICAO airport');
+  if (!dest) throw new Error('Last waypoint is not an ICAO airport');
+
+  // Seed dep coord for back-fill chain
+  if (waypoints[0].lat == null) {
+    const seed = await resolveAirportCoord(dep);
+    if (seed) { waypoints[0].lat = seed.lat; waypoints[0].lon = seed.lon; }
+  }
+
+  // Back-compute coords for named-only waypoints from leg trk+dist
+  for (let i = 1; i < waypoints.length; i++) {
+    const w = waypoints[i];
+    if (w.lat != null && w.lon != null) continue;
+    const prev = waypoints[i-1];
+    if (prev.lat == null || prev.lon == null) continue;
+    if (!w.leg || w.leg.trkT == null || w.leg.distNm == null) continue;
+    const p = offsetPoint(prev, w.leg.trkT, w.leg.distNm);
+    w.lat = Math.round(p.lat * 10000) / 10000;
+    w.lon = Math.round(p.lon * 10000) / 10000;
+    w._backComputed = true;
+  }
+
+  const via = waypoints.slice(1, -1).map(w => {
+    if (w.lat != null && w.lon != null) return w.name ? { name: w.name, lat: w.lat, lon: w.lon } : { lat: w.lat, lon: w.lon };
+    if (w.name) return { name: w.name };
+    return null;
+  }).filter(Boolean);
+  const altsFt = waypoints.slice(1).map(w => w.leg ? w.leg.levelFt : null);
+  const backComputed = waypoints.filter(w => w._backComputed).length;
+
+  return {
+    dep, dest, via, altsFt,
+    source: sourceLabel,
+    note: `Imported from PLOG (${waypoints.length - 1} legs, ${altsFt.filter(a => a != null).length} altitudes, ${backComputed} coords back-computed).`,
+    importedAt: new Date().toISOString(),
+  };
+}
+
+async function importFile(file) {
+  showStatus(`Parsing ${file.name}…`, 'info');
+  document.getElementById('preview').style.display = 'none';
+  try {
+    const lines = await extractPdfText(file);
+    const waypoints = parsePlogLines(lines);
+    const route = await plogToValidatedRoute(waypoints, `PLOG ${file.name}`);
+
+    // Cloud-save to /api/logs (bound to the authenticated user).
+    showStatus(`Uploading ${route.dep} → ${route.dest} to your account…`, 'info');
+    const resp = await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        dep: route.dep, dest: route.dest,
+        via: route.via, altsFt: route.altsFt,
+        source: route.source, note: route.note,
+      }),
+    });
+    if (resp.status === 401) {
+      location.href = '/login.html?next=/contribute.html';
+      return;
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showStatus(`✗ Upload failed: ${data.error || resp.status}`, 'err');
+      return;
+    }
+
+    await fetchCorpus();
+    const status = (data.log && data.log.status) || 'pending';
+    const blurb = status === 'approved'
+      ? `Approved (admin upload) — live in the planner.`
+      : `Pending moderator review (best efforts within 7 days). We've emailed you a confirmation, and you'll get another email when it's reviewed. Your upload is visible under "My plans" but won't affect routing until approved.`;
+    showStatus(
+      `✓ Uploaded ${route.dep} → ${route.dest} (${route.via.length} fixes, ${route.altsFt.length} legs). ${blurb}`,
+      'ok'
+    );
+
+    // Preview the parsed structure
+    const preview = document.getElementById('preview');
+    preview.style.display = 'block';
+    preview.textContent = JSON.stringify(data.log || route, null, 2);
+  } catch (err) {
+    showStatus(`✗ ${err.message}`, 'err');
+  }
+}
+
+// ─── UI WIRING ────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('plogFile');
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) importFile(file);
+  e.target.value = '';
+});
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') importFile(file);
+  else showStatus('Drop a PDF file (SkyDemon PLOG)', 'err');
+});
+
+// Search filters the in-memory corpus on every keystroke (no extra fetches).
+document.getElementById('searchInput').addEventListener('input', renderCorpus);
+
+// Filter tabs flip _scope; the existing _allLogs array is re-rendered locally.
+document.getElementById('tabAll').addEventListener('click', () => setScope('all'));
+document.getElementById('tabMine').addEventListener('click', () => setScope('mine'));
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+// Uploading requires auth (so we can attribute the upload to a user), so
+// anonymous visitors are redirected to /login.html. After auth resolves we
+// capture the caller's email (for the "Mine" filter + per-row "YOU" badge),
+// run the one-shot localStorage→cloud migration, and fetch the corpus.
+(async () => {
+  try {
+    const me = await fetch('/api/auth/me');
+    if (!me.ok) { location.href = '/login.html?next=/contribute.html'; return; }
+    const data = await me.json();
+    _myEmail = (data.user && data.user.email) || null;
+    window._isAdmin = !!(data.user && data.user.isAdmin);
+  } catch {
+    showStatus('✗ Could not verify session. Try reloading.', 'err');
+    return;
+  }
+  await migrateLegacyLocalCorpus();
+  await fetchCorpus();
+})();
+</script>
+
+</body>
+</html>

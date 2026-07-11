@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/_styles.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">VFR ROUTER ▸ ADMIN</span>
+  </header>
+
+  <h1>Admin console</h1>
+  <p class="lead">Read-only view of users and all saved plans across the platform. Per-user edit/disable controls land in a follow-up.</p>
+
+  <div class="panel">
+    <div class="panel-title">Users <span class="muted" id="userCount">—</span></div>
+    <table id="usersTable">
+      <thead>
+        <tr><th>Email</th><th>Name</th><th>Call sign</th><th>Aircraft</th><th>Default dep</th><th>Joined</th><th></th></tr>
+      </thead>
+      <tbody><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Corpus moderation queue <span class="muted" id="pendingCount">—</span></div>
+    <p class="muted" style="font-size:12px;margin-bottom:10px">
+      Pending uploads are <strong>not</strong> consumed by the planner. Approve to add to the live corpus; reject to leave them visible only to the owner.
+    </p>
+    <table id="pendingTable">
+      <thead>
+        <tr><th>Route</th><th>Pilot</th><th>Country</th><th>Waypoints</th><th>Outcome</th><th>Uploaded</th><th></th></tr>
+      </thead>
+      <tbody><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">All saved plans <span class="muted" id="planCount">—</span></div>
+    <table id="plansTable">
+      <thead>
+        <tr><th>Route</th><th>Pilot</th><th>Waypoints</th><th>Distance</th><th>Source</th><th>Created</th></tr>
+      </thead>
+      <tbody><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/_nav.js"></script>
+<script>
+(async () => {
+  const user = await renderNav('admin');
+  if (!user) { location.href = '/login.html'; return; }
+  if (!user.isAdmin) {
+    document.querySelector('.lead').innerHTML = '<span style="color:var(--red)">Admin access required.</span>';
+    return;
+  }
+  await Promise.all([loadUsers(), loadPlans(), loadPending()]);
+})();
+
+async function loadUsers() {
+  const resp = await fetch('/api/auth/users');
+  const tbody = document.querySelector('#usersTable tbody');
+  if (!resp.ok) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:var(--red)">HTTP ${resp.status}</td></tr>`;
+    return;
+  }
+  const data = await resp.json();
+  document.getElementById('userCount').textContent = `(${data.users.length})`;
+  if (!data.users.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No users</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.users.map(u => `
+    <tr>
+      <td><strong>${u.email}</strong></td>
+      <td>${escapeHtml(u.firstName + ' ' + u.lastName)}</td>
+      <td>${escapeHtml(u.callSign || '—')}</td>
+      <td>${escapeHtml(u.aircraftType || '—')}</td>
+      <td>${u.defaultDep || '—'}</td>
+      <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
+      <td>${u.isAdmin ? '<span class="badge admin">ADMIN</span>' : ''}</td>
+    </tr>`).join('');
+}
+
+async function loadPlans() {
+  const resp = await fetch('/api/plans?scope=all');
+  const tbody = document.querySelector('#plansTable tbody');
+  if (!resp.ok) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--red)">HTTP ${resp.status}</td></tr>`;
+    return;
+  }
+  const data = await resp.json();
+  document.getElementById('planCount').textContent = `(${data.plans.length})`;
+  if (!data.plans.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No plans yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.plans.map(p => `
+    <tr>
+      <td><strong>${p.dep} → ${p.dest}</strong></td>
+      <td>${escapeHtml(p.pilotName || p.email)}</td>
+      <td>${(p.path || []).length}</td>
+      <td>${p.totalNm ? Math.round(p.totalNm) + ' nm' : '—'}</td>
+      <td><span class="badge">${p.source || 'router'}</span></td>
+      <td>${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}</td>
+    </tr>`).join('');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── MODERATION QUEUE ──────────────────────────────────────────────────────
+// Each pending entry has a View button that expands an inline detail row
+// (colspan across the table) showing the waypoint sequence, altitudes, full
+// metadata, and a route-shape SVG sketch including dep+dest airport endpoints.
+// Airport coords are resolved on-demand via /api/airports?search=<icao> and
+// cached so toggling open/close doesn't refetch.
+
+let _pendingLogs = [];
+let _expandedId = null;
+const _airportCoords = {};  // icao -> {lat, lon, name} or null on miss
+
+async function ensureAirportCoords(icao) {
+  if (!icao) return null;
+  if (icao in _airportCoords) return _airportCoords[icao];
+  try {
+    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=10`);
+    if (!resp.ok) { _airportCoords[icao] = null; return null; }
+    const data = await resp.json();
+    const hit = (data.items || []).find(a => (a.icaoCode || '').toUpperCase() === icao);
+    if (hit && hit.geometry && Array.isArray(hit.geometry.coordinates)) {
+      _airportCoords[icao] = {
+        lat: hit.geometry.coordinates[1],
+        lon: hit.geometry.coordinates[0],
+        name: hit.name || icao,
+      };
+    } else {
+      _airportCoords[icao] = null;
+    }
+    return _airportCoords[icao];
+  } catch {
+    _airportCoords[icao] = null;
+    return null;
+  }
+}
+
+// Format decimal lat/lon as the DMS string SkyDemon accepts in paste-route:
+// N430030W0013030  (N DDMMSS  W DDDMMSS — concatenated, no separators).
+function formatCoord(lat, lon) {
+  function dms(value, padDeg) {
+    const abs = Math.abs(value);
+    const d = Math.floor(abs);
+    const minFloat = (abs - d) * 60;
+    const m = Math.floor(minFloat);
+    let s = Math.round((minFloat - m) * 60);
+    let mm = m;
+    let dd = d;
+    if (s === 60) { s = 0; mm += 1; }
+    if (mm === 60) { mm = 0; dd += 1; }
+    return `${String(dd).padStart(padDeg, '0')}${String(mm).padStart(2, '0')}${String(s).padStart(2, '0')}`;
+  }
+  const ns = lat >= 0 ? 'N' : 'S';
+  const ew = lon >= 0 ? 'E' : 'W';
+  return `${ns}${dms(lat, 2)}${ew}${dms(lon, 3)}`;
+}
+
+// Build a SkyDemon-pasteable route string: bare ICAO + named fixes + DMS
+// coords for unnamed waypoints. No altitude/speed suffixes — SkyDemon's paste
+// parser rejects ICAO-FPL syntax (see project memory: feedback_skydemon_format).
+function skyDemonRouteString(log) {
+  const tokens = [log.dep];
+  for (const w of (log.via || [])) {
+    const name = (w.name || '').trim();
+    const isCleanIdent = name && /^[A-Z0-9_-]+$/i.test(name);
+    if (isCleanIdent) {
+      tokens.push(name.toUpperCase());
+    } else if (typeof w.lat === 'number' && typeof w.lon === 'number') {
+      tokens.push(formatCoord(w.lat, w.lon));
+    } else if (name) {
+      // Multi-word / punctuated name with no coords — moderator can edit.
+      tokens.push(name.replace(/\s+/g, '_'));
+    }
+  }
+  tokens.push(log.dest);
+  return tokens.join(' ');
+}
+
+function copyRouteString(id) {
+  const ta = document.getElementById(`route-${id}`);
+  if (!ta) return;
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(
+    () => { showCopyStatus(id, '✓ Copied — paste into SkyDemon → Plan → Route'); },
+    () => { showCopyStatus(id, '✗ Clipboard blocked — select and ⌘C manually'); }
+  );
+}
+
+function showCopyStatus(id, msg) {
+  const el = document.getElementById(`copy-status-${id}`);
+  if (!el) return;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+function fullRoutePoints(log) {
+  const points = [];
+  const dep = _airportCoords[log.dep];
+  if (dep) points.push({ lat: dep.lat, lon: dep.lon, label: log.dep, kind: 'dep' });
+  for (const w of (log.via || [])) {
+    if (typeof w.lat === 'number' && typeof w.lon === 'number') {
+      points.push({ lat: w.lat, lon: w.lon, label: w.name || '', kind: 'via' });
+    }
+  }
+  const dest = _airportCoords[log.dest];
+  if (dest) points.push({ lat: dest.lat, lon: dest.lon, label: log.dest, kind: 'dest' });
+  return points;
+}
+
+function metaBlock(log) {
+  const rows = [];
+  if (log.aircraft) rows.push(['Aircraft', log.aircraft]);
+  if (log.flightDate) rows.push(['Flight date', log.flightDate]);
+  if (log.cruiseAltFt) rows.push(['Cruise alt', `${log.cruiseAltFt} ft`]);
+  if (log.outcome) rows.push(['Outcome', log.outcome]);
+  if (log.country) rows.push(['Country', log.country]);
+  if (log.source) rows.push(['Source', log.source]);
+  if (log.note) rows.push(['Note', log.note]);
+  if (log.atcAmendments) rows.push(['ATC amendments', log.atcAmendments]);
+  if (!rows.length) return '<p class="muted" style="font-size:12px">No metadata supplied.</p>';
+  return `<table style="font-size:12px;font-family:var(--font-mono);width:auto;border-collapse:separate;border-spacing:0 2px">${
+    rows.map(([k, v]) => `<tr><th style="text-align:left;padding:2px 12px 2px 0;color:var(--muted);border:none">${k}</th><td style="border:none;vertical-align:top">${escapeHtml(v)}</td></tr>`).join('')
+  }</table>`;
+}
+
+function waypointTable(log) {
+  const via = log.via || [];
+  const alts = log.altsFt || [];
+  if (!via.length) return '<p class="muted" style="font-size:12px">No intermediate waypoints (direct route).</p>';
+  const rows = via.map((w, i) => {
+    const name = w.name || '(unnamed)';
+    const lat = (typeof w.lat === 'number') ? w.lat.toFixed(4) : '—';
+    const lon = (typeof w.lon === 'number') ? w.lon.toFixed(4) : '—';
+    const alt = (alts[i] != null) ? `${alts[i]} ft` : '—';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(name)}</td>
+      <td>${lat}</td>
+      <td>${lon}</td>
+      <td>${alt}</td>
+    </tr>`;
+  }).join('');
+  return `<table style="width:100%;font-family:var(--font-mono);font-size:12px">
+    <thead><tr><th>#</th><th>Waypoint</th><th>Lat</th><th>Lon</th><th>Leg alt (from prev)</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function routeSketch(log) {
+  const pts = fullRoutePoints(log);
+  if (pts.length < 2) {
+    return '<p class="muted" style="font-size:12px">No route sketch — not enough waypoints with coords.</p>';
+  }
+  const lats = pts.map(p => p.lat), lons = pts.map(p => p.lon);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const W = 320, H = 220, pad = 18;
+  const dLat = (maxLat - minLat) || 0.01;
+  const dLon = (maxLon - minLon) || 0.01;
+  const scale = Math.min((W - 2 * pad) / dLon, (H - 2 * pad) / dLat);
+  const offX = (W - dLon * scale) / 2;
+  const offY = (H - dLat * scale) / 2;
+  const project = p => ({
+    x: offX + (p.lon - minLon) * scale,
+    y: H - (offY + (p.lat - minLat) * scale),  // invert Y so north is up
+  });
+  const projected = pts.map((p, i) => ({ ...project(p), kind: p.kind, label: p.label }));
+  const path = projected.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const markers = projected.map(p => {
+    if (p.kind === 'dep') {
+      return `<g><rect x="${(p.x - 5).toFixed(1)}" y="${(p.y - 5).toFixed(1)}" width="10" height="10" fill="var(--green)" stroke="#000" stroke-width="0.5"/><text x="${(p.x + 8).toFixed(1)}" y="${(p.y + 3).toFixed(1)}" fill="var(--green)" font-family="monospace" font-size="10">${escapeHtml(p.label)}</text></g>`;
+    }
+    if (p.kind === 'dest') {
+      return `<g><rect x="${(p.x - 5).toFixed(1)}" y="${(p.y - 5).toFixed(1)}" width="10" height="10" fill="var(--red)" stroke="#000" stroke-width="0.5"/><text x="${(p.x + 8).toFixed(1)}" y="${(p.y + 3).toFixed(1)}" fill="var(--red)" font-family="monospace" font-size="10">${escapeHtml(p.label)}</text></g>`;
+    }
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="var(--accent)"/>`;
+  }).join('');
+  const depMissing = !_airportCoords[log.dep];
+  const destMissing = !_airportCoords[log.dest];
+  const warnBits = [];
+  if (depMissing) warnBits.push(`${log.dep} (dep)`);
+  if (destMissing) warnBits.push(`${log.dest} (dest)`);
+  const warn = warnBits.length
+    ? `<div class="muted" style="font-size:10px;margin-top:4px;color:var(--amber);font-family:var(--font-mono)">⚠ Airport coords unresolved: ${warnBits.join(', ')} — sketch may be cropped.</div>`
+    : '';
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:320px;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:3px;display:block">
+    <path d="${path}" stroke="var(--accent)" stroke-width="1.5" fill="none" opacity="0.7"/>
+    ${markers}
+  </svg>
+  <div class="muted" style="font-size:10px;margin-top:4px;font-family:var(--font-mono)">Green square = departure, red square = arrival, blue dots = via waypoints. North up.</div>${warn}`;
+}
+
+function detailRow(log) {
+  const routeStr = skyDemonRouteString(log);
+  return `<tr id="detail-${log.id}">
+    <td colspan="7" style="background:rgba(0,0,0,0.18);padding:16px;border-top:2px solid var(--accent)">
+
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-bottom:6px;letter-spacing:2px">SKYDEMON ROUTE STRING — VALIDATE IN SKYDEMON</div>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px">
+        <textarea id="route-${log.id}" readonly style="flex:1;min-height:48px;padding:8px 10px;background:rgba(0,0,0,0.35);color:var(--text);border:1px solid var(--accent);border-radius:3px;font-family:var(--font-mono);font-size:13px;resize:vertical">${escapeHtml(routeStr)}</textarea>
+        <button class="btn" style="padding:8px 14px;font-size:12px" onclick="copyRouteString('${log.id}')">⧉ Copy</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">
+        Paste into SkyDemon → New Flight → Route (or Edit Flight). SkyDemon will flag airspace busts, terrain, NOTAMs, fuel, etc. Copy any warnings and paste them as the rejection reason below if you want to reject.
+      </div>
+      <div id="copy-status-${log.id}" style="font-family:var(--font-mono);font-size:11px;color:var(--green);min-height:14px;margin-bottom:14px"></div>
+
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:2;min-width:400px">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:2px">WAYPOINTS</div>
+          <div style="font-family:var(--font-mono);font-size:12px;margin-bottom:8px">
+            <span style="color:var(--green)">${log.dep}</span>
+            <span class="muted"> (dep) → ${(log.via || []).length} intermediate → </span>
+            <span style="color:var(--red)">${log.dest}</span>
+            <span class="muted"> (dest)</span>
+          </div>
+          ${waypointTable(log)}
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:2px">METADATA</div>
+          ${metaBlock(log)}
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:14px;margin-bottom:6px;letter-spacing:2px">ROUTE SKETCH (preview only)</div>
+          ${routeSketch(log)}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
+          <button class="btn" onclick="moderateLog('${log.id}', 'approve')">✓ Approve and add to corpus</button>
+          <button class="btn btn-secondary" onclick="toggleRejectForm('${log.id}')" id="reject-toggle-${log.id}">✗ Reject…</button>
+        </div>
+        <div id="reject-form-${log.id}" style="display:none">
+          <label style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">REJECTION REASON (paste SkyDemon warnings or write a short note — included in the email to the uploader)</label>
+          <textarea id="reject-reason-${log.id}" rows="6" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.35);color:var(--text);border:1px solid var(--red);border-radius:3px;font-family:var(--font-mono);font-size:12px;resize:vertical"></textarea>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-secondary" onclick="toggleRejectForm('${log.id}')">Cancel</button>
+            <button class="delete-btn" onclick="confirmReject('${log.id}')">✗ Confirm rejection</button>
+          </div>
+        </div>
+      </div>
+
+    </td>
+  </tr>`;
+}
+
+function toggleRejectForm(id) {
+  const form = document.getElementById(`reject-form-${id}`);
+  if (!form) return;
+  const open = form.style.display === 'block';
+  form.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.getElementById(`reject-reason-${id}`)?.focus(), 50);
+  }
+}
+
+async function confirmReject(id) {
+  const ta = document.getElementById(`reject-reason-${id}`);
+  const reason = (ta?.value || '').trim();
+  if (!reason) {
+    alert('Please provide a reason — the uploader will see this in the rejection email.');
+    ta?.focus();
+    return;
+  }
+  await moderateLog(id, 'reject', reason);
+}
+
+function renderPending() {
+  const tbody = document.querySelector('#pendingTable tbody');
+  const countEl = document.getElementById('pendingCount');
+  countEl.textContent = `(${_pendingLogs.length})`;
+  if (!_pendingLogs.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Queue empty — nothing awaiting review.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _pendingLogs.map(l => {
+    const isOpen = _expandedId === l.id;
+    const row = `<tr>
+      <td><strong>${l.dep} → ${l.dest}</strong></td>
+      <td>${escapeHtml(l.contributorName || l.email)}<br><span class="muted" style="font-size:11px">${escapeHtml(l.email)}</span></td>
+      <td>${escapeHtml(l.country || '??')}</td>
+      <td>${(l.via || []).length}</td>
+      <td>${escapeHtml(l.outcome || '—')}</td>
+      <td>${l.importedAt ? new Date(l.importedAt).toLocaleString() : '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn" style="padding:4px 8px;font-size:11px" onclick="toggleExpand('${l.id}')">${isOpen ? '× Close' : '▸ Review'}</button>
+      </td>
+    </tr>`;
+    return row + (isOpen ? detailRow(l) : '');
+  }).join('');
+}
+
+async function toggleExpand(id) {
+  if (_expandedId === id) {
+    _expandedId = null;
+    renderPending();
+    return;
+  }
+  _expandedId = id;
+  renderPending();  // immediate render with whatever coords we have cached
+  // Resolve dep + dest coords in parallel, then re-render once they're in.
+  const log = _pendingLogs.find(l => l.id === id);
+  if (!log) return;
+  const needs = [log.dep, log.dest].filter(icao => icao && !(icao in _airportCoords));
+  if (!needs.length) return;
+  await Promise.all(needs.map(ensureAirportCoords));
+  if (_expandedId === id) renderPending();  // still open → swap in the full sketch
+}
+
+async function loadPending() {
+  const tbody = document.querySelector('#pendingTable tbody');
+  const resp = await fetch('/api/logs?status=pending');
+  if (!resp.ok) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:var(--red)">HTTP ${resp.status}</td></tr>`;
+    return;
+  }
+  const data = await resp.json();
+  _pendingLogs = data.logs || [];
+  renderPending();
+}
+
+async function moderateLog(id, action, reason = '') {
+  const resp = await fetch(`/api/logs/${encodeURIComponent(id)}/moderate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action, reason }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    alert(`Moderation failed: ${data.error || resp.status}`);
+    return;
+  }
+  _expandedId = null;  // collapse the detail since the entry is leaving the queue
+  await loadPending();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #111720;
+    --border: #1e2d3d;
+    --accent: #00d4ff;
+    --green: #00ff88;
+    --red: #ff4455;
+    --amber: #ffaa00;
+    --text: #c8d8e8;
+    --muted: #4a6080;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-body: 'Barlow', sans-serif;
+  }
+
+  body[data-theme="light"] {
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --border: #d4dce6;
+    --accent: #0066b8;
+    --green: #008a4e;
+    --red: #c6283c;
+    --amber: #b87200;
+    --text: #1a2635;
+    --muted: #6a7a8c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .route-badge {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--green);
+    letter-spacing: 2px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 8px;
+    transition: background 0.3s;
+  }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .status-dot.loading { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 1s infinite; }
+  .status-dot.error { background: var(--red); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 440px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 1100px) {
+    .sidebar { width: 380px; }
+  }
+
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 12px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  body[data-theme="light"] #map { background: #e2eaf2; }
+  body[data-theme="light"] .leaflet-container { background: #e2eaf2 !important; }
+
+  .section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .field {
+    margin-bottom: 10px;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .airport-search { position: relative; }
+  .airport-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 500;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-top: none;
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .airport-results.open { display: block; }
+  .airport-result {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .airport-result:last-child { border-bottom: none; }
+  .airport-result:hover,
+  .airport-result.active { background: var(--bg); }
+  .airport-result .ap-code {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 12px;
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+  .airport-result .ap-name { flex: 1; color: var(--text); }
+  .airport-result .ap-country {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .airport-results .ap-empty {
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+
+  .btn:hover { background: var(--accent); color: var(--bg); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.secondary { border-color: var(--muted); color: var(--muted); }
+  .btn.secondary:hover { border-color: var(--green); color: var(--green); background: transparent; }
+
+  .route-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--green);
+    word-break: break-all;
+    min-height: 48px;
+    line-height: 1.6;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+
+  .route-output:hover { border-color: var(--green); }
+
+  .copy-hint {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-align: right;
+  }
+
+  .copy-hint.copied { color: var(--green); }
+
+  .airspace-list {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .airspace-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .airspace-item:last-child { border-bottom: none; }
+
+  .airspace-class {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .cls-C { background: #ff445520; color: #ff4455; border: 1px solid #ff445540; }
+  .cls-D { background: #ffaa0020; color: #ffaa00; border: 1px solid #ffaa0040; }
+  .cls-R { background: #ff00ff20; color: #ff88ff; border: 1px solid #ff00ff40; }
+  .cls-P { background: #ff000020; color: #ff6666; border: 1px solid #ff000040; }
+  .cls-other { background: #ffffff10; color: #888; border: 1px solid #ffffff20; }
+
+  .airspace-name { flex: 1; color: var(--text); font-size: 11px; }
+  .airspace-alt { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--muted); }
+  .stat-value { font-family: var(--font-mono); color: var(--accent); }
+
+  #map {
+    flex: 1;
+    background: #0d1520;
+  }
+
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    max-height: 100px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+
+  .log-line { display: block; }
+  .log-line.ok { color: var(--green); }
+  .log-line.warn { color: var(--amber); }
+  .log-line.err { color: var(--red); }
+
+  .opt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .opt-row input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .opt-row .opt-num {
+    width: 60px;
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  .opt-row span { flex: 0 0 auto; }
+
+  .pilot-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .warning-list { list-style: none; }
+  .warning-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .warning-item:last-child { border-bottom: none; }
+  .warning-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .sev-err  { background: #ff445520; color: #ff4455; border: 1px solid #ff445540; }
+  .sev-warn { background: #ffaa0020; color: #ffaa00; border: 1px solid #ffaa0040; }
+  .sev-info { background: #00d4ff20; color: #00d4ff; border: 1px solid #00d4ff40; }
+  .warning-text { flex: 1; color: var(--text); font-size: 11px; line-height: 1.4; }
+
+  .waypoint-list { list-style: none; }
+  .wp-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .wp-item:last-child { border-bottom: none; }
+  .wp-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .wp-name { font-family: var(--font-mono); color: var(--green); font-size: 12px; flex: 1; }
+  .wp-alt  { font-family: var(--font-mono); color: var(--accent); font-size: 10px; min-width: 58px; text-align: right; }
+  .wp-alt.nonstd { color: var(--amber); }
+  .wp-alt.none   { color: var(--red); }
+  .wp-dist { font-family: var(--font-mono); font-size: 10px; color: var(--muted); min-width: 48px; text-align: right; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .leaflet-container { background: #0d1520 !important; }
+
+  .altitude-range {
+    display: flex;
+    gap: 8px;
+  }
+  .altitude-range .field { flex: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">VFR Router ▸ POC</div>
+  <div class="route-badge" id="routeBadge">— → —</div>
+  <div style="font-size:12px; color: var(--muted); display:flex; align-items:center;">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Ready</span>
+    <button class="theme-toggle" id="airspaceToggle" onclick="toggleAirspace()">Hide Airspace</button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">Light</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+
+    <div class="section">
+      <div class="section-title">Configuration</div>
+      <div class="field">
+        <label>Departure</label>
+        <div class="airport-search">
+          <input type="text" id="depICAO" value="LEMU" autocomplete="off" placeholder="ICAO, IATA or name" />
+          <div class="airport-results" id="depICAOResults"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Destination</label>
+        <div class="airport-search">
+          <input type="text" id="destICAO" value="LFMD" autocomplete="off" placeholder="ICAO, IATA or name" />
+          <div class="airport-results" id="destICAOResults"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Preferred Alt (ft MSL)</label>
+        <input type="number" id="altPreferred" value="9500" step="500" />
+      </div>
+      <div class="altitude-range">
+        <div class="field">
+          <label title="Minimum separation above terrain/water. Per-leg floor (MSL) = max terrain + Pilot MSA.">Pilot MSA (ft AGL)</label>
+          <input type="number" id="altPilotMsa" value="1000" step="100" />
+        </div>
+        <div class="field">
+          <label>Ceiling (ft)</label>
+          <input type="number" id="altCeiling" value="12500" step="500" />
+        </div>
+      </div>
+      <div style="font-size:10px; color: var(--muted); margin-top:4px; line-height:1.4;">
+        Per-leg floor (MSL) = max terrain AGL along leg + Pilot MSA
+      </div>
+      <div class="field">
+        <label>TAS (kt)</label>
+        <input type="number" id="tasKt" value="120" step="5" min="40" max="500" />
+      </div>
+      <div class="field">
+        <label>Departure (local)</label>
+        <input type="datetime-local" id="depTime" />
+      </div>
+      <button class="btn" id="computeBtn" onclick="computeRoute()">▶ Compute Route</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Planner Options</div>
+      <label class="opt-row"><input type="checkbox" id="optSubdivide" checked>
+        <span>Subdivide long legs over</span>
+        <input type="number" id="optSubdivideNm" value="150" step="10" min="50" max="500" class="opt-num"> nm</label>
+      <label class="opt-row"><input type="checkbox" id="optAvoidDanger" checked>
+        <span>Avoid danger areas</span></label>
+      <label class="opt-row"><input type="checkbox" id="optAvoidRestricted" checked>
+        <span>Avoid restricted / prohibited areas</span></label>
+      <label class="opt-row"><input type="checkbox" id="optAvoidMilitary" checked>
+        <span>Avoid military zones (TSA/TRA/MATZ)</span></label>
+      <label class="opt-row"><input type="checkbox" id="optSnapFixes" checked>
+        <span>Snap turn points to named fixes</span></label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pilot Corpus</div>
+      <div id="corpusStatus" style="font-size:11px;color:var(--muted);margin-bottom:8px">Loading…</div>
+      <a href="/contribute.html" class="btn" style="display:block;text-align:center;text-decoration:none">▸ Contribute a Pilot Log</a>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SkyDemon Route String</div>
+      <div class="route-output" id="routeOutput" onclick="copyRoute('routeOutput','copyHint')">—</div>
+      <div class="copy-hint" id="copyHint">Tap to copy</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ForeFlight Route String</div>
+      <div class="route-output" id="foreflightOutput" onclick="copyRoute('foreflightOutput','foreflightCopyHint')">—</div>
+      <div class="copy-hint" id="foreflightCopyHint">Tap to copy</div>
+      <div id="foreflightMeta" style="font-size:11px; color: var(--text); margin-top:8px; font-family: var(--font-mono); line-height:1.6;"></div>
+      <div style="font-size:10px; color: var(--muted); margin-top:6px; line-height:1.4;">
+        Turn points use ICAO coord form (DDMMN/DDDMME) to avoid name
+        collisions with unrelated global fixes. Airport ICAOs are kept as is.
+        Paste into ForeFlight's Route field; enter dep time in its filing dialog.
+      </div>
+      <button class="btn secondary" id="ffLinkBtn" onclick="openInForeFlight()" style="margin-top:8px;">Open in ForeFlight (iOS)</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Route Stats</div>
+      <div id="statsBox">
+        <div class="stat-row"><span class="stat-label">Total distance</span><span class="stat-value" id="statDist">—</span></div>
+        <div class="stat-row"><span class="stat-label">Waypoints</span><span class="stat-value" id="statWpts">—</span></div>
+        <div class="stat-row"><span class="stat-label">Airspace avoided</span><span class="stat-value" id="statAvoided">—</span></div>
+        <div class="stat-row"><span class="stat-label">Altitude band</span><span class="stat-value" id="statAlt">—</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Waypoints</div>
+      <ul class="waypoint-list" id="waypointList"><li style="font-size:12px;color:var(--muted);padding:4px 0">No route computed</li></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Airspaces Crossed</div>
+      <ul class="airspace-list" id="airspaceList"><li style="font-size:12px;color:var(--muted);padding:4px 0">No route computed</li></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pilot Log</div>
+      <pre class="pilot-log" id="pilotLog">No route computed</pre>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Warnings</div>
+      <ul class="warning-list" id="warningList"><li style="font-size:12px;color:var(--muted);padding:4px 0">No warnings</li></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Log</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script>
+// Known airport coordinates
+const AIRPORTS = {
+  LEMU: { lat: 38.2822, lon: -0.5519, name: 'Muchamiel' },
+  LFMD: { lat: 43.5469, lon:  7.0003, name: 'Cannes-Mandelieu' },
+  LEIB: { lat: 38.8729, lon:  1.3731, name: 'Ibiza' },
+  LEPA: { lat: 39.5517, lon:  2.7388, name: 'Palma' },
+  LEMH: { lat: 39.8626, lon:  4.2186, name: 'Menorca' },
+  LFKC: { lat: 42.5306, lon:  8.7928, name: 'Calvi-Ste-Catherine' },
+  LFKB: { lat: 42.5527, lon:  9.4839, name: 'Bastia-Poretta' },
+  LFKJ: { lat: 41.9236, lon:  8.8029, name: 'Ajaccio-Napoleon-Bonaparte' },
+  LFKF: { lat: 41.5006, lon:  9.0978, name: 'Figari-Sud-Corse' },
+};
+
+
+// Named VFR waypoints along the western Med / Corsica corridor.
+// Corsica & offshore points give the A* a real alternative to the direct line
+// when French coastal airspace becomes a lateral obstacle.
+const NAMED_FIXES = [
+  // Balearics & Spanish coast
+  { name: 'SISDU', lat: 38.9333, lon: 1.6167 },
+  { name: 'OLPAM', lat: 39.1000, lon: 2.1667 },
+  { name: 'MJV',   lat: 39.4350, lon: 2.7583 },
+  { name: 'NEVIC', lat: 39.3317, lon: 3.4317 },
+  { name: 'NEMOS', lat: 40.2000, lon: 4.8000 },
+  { name: 'TOLSO', lat: 39.7833, lon: 3.5167 },
+  { name: 'DIKAM', lat: 40.8833, lon: 5.6333 },
+  { name: 'OGRES', lat: 41.3000, lon: 2.1000 },
+  { name: 'RASPU', lat: 41.5833, lon: 3.1833 },
+  { name: 'BAMES', lat: 41.8333, lon: 3.8667 },
+  { name: 'KORER', lat: 42.2667, lon: 4.8000 },
+  { name: 'IRMAR', lat: 42.5500, lon: 5.5667 },
+  { name: 'VALKU', lat: 43.0000, lon: 6.0000 },
+  { name: 'MEBUT', lat: 43.2667, lon: 6.5333 },
+  // Corsica & offshore turn points for a Corsica-routed alternative
+  { name: 'CCORS', lat: 43.0200, lon: 9.3500 }, // Cap Corse (N tip)
+  { name: 'LFKC',  lat: 42.5306, lon: 8.7928 }, // Calvi
+  { name: 'LFKB',  lat: 42.5527, lon: 9.4839 }, // Bastia
+  { name: 'LFKJ',  lat: 41.9236, lon: 8.8029 }, // Ajaccio
+  { name: 'LFKF',  lat: 41.5006, lon: 9.0978 }, // Figari
+  { name: 'BIKUV', lat: 42.7500, lon: 6.6000 }, // offshore N of Corsica
+  { name: 'REKMO', lat: 42.2500, lon: 8.3000 }, // offshore W of Corsica
+];
+
+// Country KBs loaded at runtime from /kb/<code>.json. Each KB contributes:
+//   - reportingPoints → NAMED_FIXES (with `corridor` tag for A* gateway nodes)
+//   - rules[].hardAvoid → KB_HARD_AVOID_RULES, applied in shouldAvoid()
+// Extend this list to cover more countries as their KBs come online.
+const COUNTRY_KBS = ['es', 'fr'];
+const KB_HARD_AVOID_RULES = [];
+const LOADED_KBS = [];
+// Pilot-validated routes ingested from KB. computeRoute prefers a corpus
+// match over A* planning — the pilot's route is ground truth.
+const VALIDATED_ROUTES = [];
+
+const kbReady = (async () => {
+  for (const code of COUNTRY_KBS) {
+    try {
+      const resp = await fetch(`/kb/${code}.json`, { cache: 'no-cache' });
+      if (!resp.ok) { console.warn(`KB ${code}: HTTP ${resp.status}`); continue; }
+      const kb = await resp.json();
+      LOADED_KBS.push({ code, ...kb });
+      let added = 0;
+      for (const p of (kb.reportingPoints || [])) {
+        NAMED_FIXES.push({ name: p.name, lat: p.lat, lon: p.lon, corridor: p.corridor, arrivalFor: p.arrivalFor });
+        added++;
+      }
+      for (const r of (kb.rules || [])) {
+        if (r.hardAvoid) KB_HARD_AVOID_RULES.push({ ...r.hardAvoid, id: r.id, source: r.source });
+      }
+      for (const vr of (kb.validatedRoutes || [])) {
+        VALIDATED_ROUTES.push({ ...vr, _country: code });
+      }
+      console.log(`KB loaded: ${code} (${kb.name || code}) — ${added} reporting points, ${(kb.rules||[]).length} rules, ${(kb.validatedRoutes||[]).length} validated routes`);
+    } catch (e) {
+      console.warn(`KB ${code} load failed:`, e.message);
+    }
+  }
+})();
+
+// Gate the Compute button on KB load so early clicks don't race the fetch.
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('computeBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = '⏳ Loading KBs…';
+  kbReady.then(() => {
+    btn.disabled = false;
+    btn.textContent = prev;
+  });
+});
+
+const map = L.map('map', { zoomControl: true }).setView([41.2, 3.5], 6);
+
+const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+let tileLayer = L.tileLayer(TILE_DARK, {
+  attribution: '© OpenStreetMap © CARTO',
+  maxZoom: 14
+}).addTo(map);
+
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? 'Dark' : 'Light';
+  map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(theme === 'light' ? TILE_LIGHT : TILE_DARK, {
+    attribution: '© OpenStreetMap © CARTO',
+    maxZoom: 14
+  }).addTo(map);
+  try { localStorage.setItem('vfrRouterTheme', theme); } catch(e) {}
+}
+
+function toggleTheme() {
+  const cur = document.body.dataset.theme === 'light' ? 'light' : 'dark';
+  applyTheme(cur === 'light' ? 'dark' : 'light');
+}
+
+try { applyTheme(localStorage.getItem('vfrRouterTheme') === 'light' ? 'light' : 'dark'); }
+catch(e) { applyTheme('dark'); }
+
+let airspaceLayers = [];
+let routeLayer = null;
+let markerLayers = [];
+let airspaceVisible = true;
+
+function applyAirspaceVisibility() {
+  const btn = document.getElementById('airspaceToggle');
+  if (btn) btn.textContent = airspaceVisible ? 'Hide Airspace' : 'Show Airspace';
+  for (const layer of airspaceLayers) {
+    if (airspaceVisible) { if (!map.hasLayer(layer)) layer.addTo(map); }
+    else                 { if (map.hasLayer(layer))  map.removeLayer(layer); }
+  }
+}
+
+function toggleAirspace() {
+  airspaceVisible = !airspaceVisible;
+  try { localStorage.setItem('vfrRouterAirspace', airspaceVisible ? '1' : '0'); } catch(e) {}
+  applyAirspaceVisibility();
+}
+
+try {
+  const saved = localStorage.getItem('vfrRouterAirspace');
+  if (saved === '0') airspaceVisible = false;
+} catch(e) {}
+
+function log(msg, type='') {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('span');
+  line.className = 'log-line ' + type;
+  line.textContent = '› ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + state;
+  txt.textContent = text;
+}
+
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+function haversine(a, b) {
+  const R = 3440.065;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const x = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function bearing(a, b) {
+  const dLon = toRad(b.lon - a.lon);
+  const y = Math.sin(dLon) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+            Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function interpolate(a, b, t) {
+  return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
+}
+
+// Destination point from start, initial bearing (deg), distance (nm).
+// Standard spherical direct formula (rhumb error tolerable at A* scales).
+function offsetPoint(p, bearingDeg, distNm) {
+  const R = 3440.065;
+  const ang = distNm / R;
+  const brg = toRad(bearingDeg);
+  const lat1 = toRad(p.lat), lon1 = toRad(p.lon);
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(ang) +
+    Math.cos(lat1) * Math.sin(ang) * Math.cos(brg)
+  );
+  const lon2 = lon1 + Math.atan2(
+    Math.sin(brg) * Math.sin(ang) * Math.cos(lat1),
+    Math.cos(ang) - Math.sin(lat1) * Math.sin(lat2)
+  );
+  return { lat: toDeg(lat2), lon: toDeg(lon2) };
+}
+
+// Standard ray-casting point-in-polygon. poly is stored as [lat, lon] per vertex
+// (see extractPolygon). Ray is cast horizontally at constant latitude = pt.lat.
+function pointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const lati = poly[i][0], loni = poly[i][1];
+    const latj = poly[j][0], lonj = poly[j][1];
+    const crossesLat = (lati > pt.lat) !== (latj > pt.lat);
+    if (!crossesLat) continue;
+    const lonAtCross = loni + (pt.lat - lati) * (lonj - loni) / (latj - lati);
+    if (pt.lon < lonAtCross) inside = !inside;
+  }
+  return inside;
+}
+
+function segmentIntersectsPolygon(a, b, poly) {
+  const steps = 20;
+  for (let i = 0; i <= steps; i++) {
+    const pt = interpolate(a, b, i / steps);
+    if (pointInPolygon(pt, poly)) return true;
+  }
+  return false;
+}
+
+// OpenAIP v2 limit object: { value: number, unit: 1|6, referenceDatum: 0|1|2 }
+// unit: 1 = FT, 6 = FL. referenceDatum: 0 = GND, 1 = MSL, 2 = STD.
+function parseAltFt(limit, ref) {
+  if (limit == null) return ref === 'upper' ? 99999 : 0;
+
+  if (typeof limit === 'object') {
+    const v = limit.value;
+    if (v == null) return ref === 'upper' ? 99999 : 0;
+    if (limit.unit === 6) return v * 100;
+    return v;
+  }
+
+  if (typeof limit === 'number') return limit;
+
+  const s = String(limit).toUpperCase().trim();
+  if (s === 'GND' || s === 'SFC') return 0;
+  if (s === 'UNL' || s === 'UNLIM') return 99999;
+  const flm = s.match(/^FL(\d+)/);
+  if (flm) return parseInt(flm[1]) * 100;
+  const ftm = s.match(/^(\d+)\s*FT/);
+  if (ftm) return parseInt(ftm[1]);
+  const nm = s.match(/^(\d+)/);
+  if (nm) return parseInt(nm[1]);
+  return ref === 'upper' ? 99999 : 0;
+}
+
+function fmtAlt(limit) {
+  if (limit == null) return '?';
+  if (typeof limit === 'object') {
+    const v = limit.value;
+    if (v == null) return '?';
+    if (limit.unit === 6) return `FL${String(v).padStart(3,'0')}`;
+    if (v === 0 && (limit.referenceDatum === 0)) return 'GND';
+    return `${v} ft`;
+  }
+  return String(limit);
+}
+
+// OpenAIP v2 returns icaoClass and type as integer enums. Source of truth:
+// https://api.core.openaip.net/api/schemas/response/airspace/airspace-schema.json
+// icaoClass values: 0-6 + 8. type values: 0-36.
+const ICAO_CLASS_NAMES = {
+  0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G',
+  8: 'SUA'
+};
+const AIRSPACE_TYPE_NAMES = {
+  0:'OTHER', 1:'RESTRICTED', 2:'DANGER', 3:'PROHIBITED',
+  4:'CTR', 5:'TMZ', 6:'RMZ', 7:'TMA', 8:'TRA', 9:'TSA',
+  10:'FIR', 11:'UIR', 12:'ADIZ', 13:'ATZ', 14:'MATZ',
+  15:'AIRWAY', 16:'MTR', 17:'ALERT', 18:'WARNING', 19:'PROTECTED',
+  20:'HTZ', 21:'GLIDING', 22:'TRP', 23:'TIZ', 24:'TIA',
+  25:'MTA', 26:'CTA', 27:'ACC', 28:'SPORTING', 29:'LOW_OVERFLIGHT',
+  30:'MRT', 31:'TFR', 32:'VFR_SECTOR', 33:'FIS', 34:'LTA',
+  35:'UTA', 36:'MCTR'
+};
+
+function decodeIcaoClass(raw) {
+  if (raw == null) return '';
+  const n = typeof raw === 'number' ? raw : (/^\d+$/.test(String(raw)) ? parseInt(raw, 10) : null);
+  if (n != null) return ICAO_CLASS_NAMES[n] ?? `?${n}`;
+  return String(raw).toUpperCase();
+}
+
+function decodeAirspaceType(raw) {
+  if (raw == null) return '';
+  const n = typeof raw === 'number' ? raw : (/^\d+$/.test(String(raw)) ? parseInt(raw, 10) : null);
+  if (n != null) return AIRSPACE_TYPE_NAMES[n] ?? `?${n}`;
+  return String(raw).toUpperCase();
+}
+
+async function fetchAirspace(dep, dest) {
+  // Pad generously so detours (e.g. via Corsica) stay inside the fetched
+  // airspace set. 2.5° ≈ 150 nm of routing flexibility around the great-circle.
+  const pad = 2.5;
+  const minLat = Math.min(dep.lat, dest.lat) - pad;
+  const maxLat = Math.max(dep.lat, dest.lat) + pad;
+  const minLon = Math.min(dep.lon, dest.lon) - pad;
+  const maxLon = Math.max(dep.lon, dest.lon) + pad;
+
+  log(`Fetching airspace bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
+
+  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
+  const PAGE_LIMIT = 1000;
+  const MAX_PAGES = 10;
+  const all = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `/api/airspaces?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
+    }
+    const data = await resp.json();
+    const items = data.items || [];
+    all.push(...items);
+    log(`page ${page}: +${items.length} items (running total ${all.length})`);
+    if (items.length < PAGE_LIMIT) break;
+    if (page === MAX_PAGES) log('pagination cap hit — data may be incomplete', 'warn');
+  }
+  log(`Received ${all.length} airspace items total`, 'ok');
+  return all;
+}
+
+// Fetch airports in the flight bbox from OpenAIP for use as A* turn-points.
+// The raw result for Iberia is ~865 airports — too many to feed into the
+// graph directly. Filter on two axes before returning:
+//   1. Keep only airport types that make sense as civil VFR turn points
+//      (airports, airfields, ULM strips, landing strips); drop heliports,
+//      military-only, seaplane bases.
+//   2. Keep only airports within `CORRIDOR_NM` of the great-circle line from
+//      dep to dest — a 200 nm half-width covers realistic detours and cuts
+//      the node count by ~4x on typical routes.
+// OpenAIP airport type integer codes — civil VFR useful set:
+//   0 APT, 2 CIVIL_AIRFIELD, 3 INTL_APT, 6 CIVIL_MIL_AIRFIELD, 8 ULTRALIGHT,
+//   10 LANDING_STRIP
+// Excluded: 1 GLIDING, 4/5/9 heliports, 7 MIL_ONLY, 13 SEAPLANE.
+const AIRPORT_TYPE_USABLE = new Set([0, 2, 3, 6, 8, 10]);
+const CORRIDOR_NM = 200;
+
+// Perpendicular great-circle distance from point `p` to the segment `a→b`.
+function crossTrackNm(p, a, b) {
+  const R = 3440.065; // earth radius in nm
+  const toRad = d => d * Math.PI / 180;
+  const dAP = Math.acos(
+    Math.sin(toRad(a.lat)) * Math.sin(toRad(p.lat)) +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(p.lat)) * Math.cos(toRad(p.lon - a.lon))
+  );
+  const brgAP = Math.atan2(
+    Math.sin(toRad(p.lon - a.lon)) * Math.cos(toRad(p.lat)),
+    Math.cos(toRad(a.lat)) * Math.sin(toRad(p.lat)) -
+    Math.sin(toRad(a.lat)) * Math.cos(toRad(p.lat)) * Math.cos(toRad(p.lon - a.lon))
+  );
+  const brgAB = Math.atan2(
+    Math.sin(toRad(b.lon - a.lon)) * Math.cos(toRad(b.lat)),
+    Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+    Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lon - a.lon))
+  );
+  return Math.abs(Math.asin(Math.sin(dAP) * Math.sin(brgAP - brgAB)) * R);
+}
+
+async function fetchAirportsInBbox(dep, dest) {
+  const pad = 2.5;
+  const minLat = Math.min(dep.lat, dest.lat) - pad;
+  const maxLat = Math.max(dep.lat, dest.lat) + pad;
+  const minLon = Math.min(dep.lon, dest.lon) - pad;
+  const maxLon = Math.max(dep.lon, dest.lon) + pad;
+  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
+  const PAGE_LIMIT = 1000;
+  const MAX_PAGES = 5;
+  const all = [];
+  log(`Fetching airports bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `/api/airports?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!resp.ok) { log(`airports fetch HTTP ${resp.status} on page ${page}`, 'warn'); break; }
+    const data = await resp.json();
+    const items = data.items || [];
+    all.push(...items);
+    log(`airports page ${page}: +${items.length} (total ${all.length})`);
+    if (items.length < PAGE_LIMIT) break;
+  }
+  const nodes = [];
+  let skippedType = 0, skippedCorridor = 0;
+  for (const ap of all) {
+    if (!AIRPORT_TYPE_USABLE.has(ap.type)) { skippedType++; continue; }
+    if (!ap.geometry || !Array.isArray(ap.geometry.coordinates)) continue;
+    const lon = ap.geometry.coordinates[0];
+    const lat = ap.geometry.coordinates[1];
+    if (typeof lat !== 'number' || typeof lon !== 'number') continue;
+    if (crossTrackNm({ lat, lon }, dep, dest) > CORRIDOR_NM) { skippedCorridor++; continue; }
+    const icao = (ap.icaoCode || '').toUpperCase();
+    const iata = (ap.iataCode || '').toUpperCase();
+    const name = icao || iata || (ap.name ? ap.name.slice(0, 20).toUpperCase() : null);
+    if (!name) continue;
+    nodes.push({ name, lat, lon });
+  }
+  log(`airports kept: ${nodes.length} (skipped ${skippedType} by type, ${skippedCorridor} outside ±${CORRIDOR_NM} nm corridor)`, 'ok');
+  return nodes;
+}
+
+function filterToAltBand(items, altMinFt, altMaxFt) {
+  return items.filter(item => {
+    const lower = parseAltFt(item.lowerLimit ?? item.floor, 'lower');
+    const upper = parseAltFt(item.upperLimit ?? item.ceiling, 'upper');
+    return lower < altMaxFt && upper > altMinFt;
+  });
+}
+
+function extractPolygon(item) {
+  try {
+    const geo = item.geometry || item.geom;
+    if (!geo) return null;
+    if (geo.type === 'Polygon') {
+      return geo.coordinates[0].map(c => [c[1], c[0]]);
+    }
+    if (geo.type === 'MultiPolygon') {
+      return geo.coordinates[0][0].map(c => [c[1], c[0]]);
+    }
+  } catch(e) {}
+  return null;
+}
+
+// Synthesise mid-leg anchor candidates along the great-circle so A* has
+// detour options when the KB has no published reporting points along the
+// corridor. Generates `spacingNm`-spaced points with `lateralSteps`
+// perpendicular offsets each side. Synthetic node names (SYN…) are not in
+// AIRPORTS, so toRouteToken emits coordinates — they never pollute the
+// SkyDemon paste with fabricated identifiers.
+function generateSyntheticAnchors(dep, dest, spacingNm = 30, lateralNm = 25, lateralSteps = 2) {
+  const out = [];
+  const totalNm = haversine(dep, dest);
+  if (totalNm < spacingNm * 2) return out;
+  const numAlong = Math.floor(totalNm / spacingNm);
+  const track = bearing(dep, dest);
+  for (let i = 1; i < numAlong; i++) {
+    const mid = interpolate(dep, dest, i / numAlong);
+    out.push({ ...mid, name: `SYN${i}`, _synthetic: true });
+    for (let k = 1; k <= lateralSteps; k++) {
+      const off = k * lateralNm;
+      out.push({ ...offsetPoint(mid, track - 90, off), name: `SYN${i}L${k}`, _synthetic: true });
+      out.push({ ...offsetPoint(mid, track + 90, off), name: `SYN${i}R${k}`, _synthetic: true });
+    }
+  }
+  return out;
+}
+
+function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
+  const nodes = [dep, dest];
+
+  for (const obs of obstacles) {
+    if (!obs.poly) continue;
+    let minLat=90, maxLat=-90, minLon=180, maxLon=-180;
+    for (const [lat, lon] of obs.poly) {
+      minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+      minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
+    }
+    const padLat = (maxLat - minLat) * 0.08 + 0.12;
+    const padLon = (maxLon - minLon) * 0.08 + 0.12;
+    nodes.push(
+      { lat: minLat - padLat, lon: (minLon + maxLon) / 2 },
+      { lat: maxLat + padLat, lon: (minLon + maxLon) / 2 },
+      { lat: (minLat + maxLat) / 2, lon: minLon - padLon },
+      { lat: (minLat + maxLat) / 2, lon: maxLon + padLon },
+      { lat: minLat - padLat, lon: minLon - padLon },
+      { lat: minLat - padLat, lon: maxLon + padLon },
+      { lat: maxLat + padLat, lon: minLon - padLon },
+      { lat: maxLat + padLat, lon: maxLon + padLon },
+    );
+  }
+
+  // Seed A* with turn points inside each VFR sector so the planner can thread
+  // a corridor rather than route around the parent TMA. Centroid + bbox
+  // midpoints cover simple and mildly dog-legged corridor shapes.
+  for (const vs of vfrSectors) {
+    const poly = vs.poly;
+    let sumLat = 0, sumLon = 0;
+    let minLat=90, maxLat=-90, minLon=180, maxLon=-180;
+    for (const [la, lo] of poly) {
+      sumLat += la; sumLon += lo;
+      if (la < minLat) minLat = la;
+      if (la > maxLat) maxLat = la;
+      if (lo < minLon) minLon = lo;
+      if (lo > maxLon) maxLon = lo;
+    }
+    const cLat = sumLat / poly.length, cLon = sumLon / poly.length;
+    const label = vs.name ? `VFR:${vs.name}`.slice(0, 24) : 'VFR';
+    const candidates = [
+      { lat: cLat, lon: cLon },
+      { lat: (minLat + cLat) / 2, lon: cLon },
+      { lat: (maxLat + cLat) / 2, lon: cLon },
+      { lat: cLat, lon: (minLon + cLon) / 2 },
+      { lat: cLat, lon: (maxLon + cLon) / 2 },
+    ];
+    for (const c of candidates) {
+      if (pointInPolygon(c, poly)) { nodes.push({ ...c, name: label, _vfr: true }); break; }
+    }
+  }
+
+  for (const fix of NAMED_FIXES) {
+    const n = { lat: fix.lat, lon: fix.lon, name: fix.name };
+    if (fix.corridor) n.corridor = fix.corridor;
+    nodes.push(n);
+  }
+
+  // Per-route extra nodes (e.g. airports in the flight bbox fetched from
+  // OpenAIP). These fill the gaps between static NAMED_FIXES in regions
+  // where no corridor reporting points have been ingested yet.
+  for (const ex of extraNodes) {
+    nodes.push({ lat: ex.lat, lon: ex.lon, name: ex.name });
+  }
+
+  // If the corridor has barely any named anchors (e.g. an under-curated KB
+  // region), sprinkle synthetic mid-leg waypoints so A* still has detour
+  // options. Without this the planner collapses to a near-direct line and
+  // emits a single coordinate fix.
+  const corridorAnchorCount = nodes
+    .slice(2)
+    .filter(p => p.name && crossTrackNm(p, dep, dest) <= CORRIDOR_NM)
+    .length;
+  if (corridorAnchorCount < 5) {
+    const synthetic = generateSyntheticAnchors(dep, dest);
+    for (const s of synthetic) nodes.push(s);
+    log(`sparse corridor (${corridorAnchorCount} named anchors) — seeded ${synthetic.length} synthetic candidates`, 'warn');
+  }
+
+  const n = nodes.length;
+  const depIdx = 0, destIdx = 1;
+
+  // A segment crosses a controlled-airspace obstacle legally only if the
+  // in-obstacle portion is covered by one or more VFR sectors. Sample densely
+  // enough to catch narrow corridor exits without being too expensive
+  // (O(samples × obstacles × sectors) per edge).
+  const SAMPLES = 40;
+  function crossingCoveredBySectors(a, b, obsPoly) {
+    if (!vfrSectors.length) return false;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const t = i / SAMPLES;
+      const pt = { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
+      if (!pointInPolygon(pt, obsPoly)) continue;
+      let covered = false;
+      for (const vs of vfrSectors) {
+        if (pointInPolygon(pt, vs.poly)) { covered = true; break; }
+      }
+      if (!covered) return false;
+    }
+    return true;
+  }
+
+  // A node-incident corridor edge (either endpoint tagged with a corridor ID)
+  // permits transit through TMA/CTA — those are the classes a published VFR
+  // route actually passes through. CTRs and prohibited/restricted still block
+  // even on a corridor edge: published routes go AROUND CTRs, not through.
+  function isClear(a, b) {
+    const corridorEdge = !!(a.corridor || b.corridor);
+    for (const obs of obstacles) {
+      if (!obs.poly) continue;
+      if (!segmentIntersectsPolygon(a, b, obs.poly)) continue;
+      const typ = obs._obsType;
+      const cls = obs._cls;
+      // Corridor bypass permits Class D/C/E TMA+CTA transit (the AIP-published
+      // case). Class A is never corridor-exemptable — VFR is flat-out
+      // prohibited inside Class A, no corridor or clearance changes that.
+      if (corridorEdge && (typ === 'TMA' || typ === 'CTA') && cls !== 'A') continue;
+      const corridorable = typ === 'TMA' || typ === 'CTR' || typ === 'CTA' || typ === 'MCTR';
+      if (!corridorable) return false;
+      if (!crossingCoveredBySectors(a, b, obs.poly)) return false;
+    }
+    return true;
+  }
+
+  const g = new Array(n).fill(Infinity);
+  const f = new Array(n).fill(Infinity);
+  const prev = new Array(n).fill(-1);
+  const open = new Set([depIdx]);
+  const closed = new Set();
+
+  g[depIdx] = 0;
+  f[depIdx] = haversine(nodes[depIdx], nodes[destIdx]);
+
+  let iterations = 0;
+  while (open.size > 0 && iterations++ < 5000) {
+    let cur = -1, curF = Infinity;
+    for (const idx of open) {
+      if (f[idx] < curF) { curF = f[idx]; cur = idx; }
+    }
+
+    if (cur === destIdx) break;
+
+    open.delete(cur);
+    closed.add(cur);
+
+    for (let nb = 0; nb < n; nb++) {
+      if (closed.has(nb)) continue;
+      if (!isClear(nodes[cur], nodes[nb])) continue;
+
+      const tentG = g[cur] + haversine(nodes[cur], nodes[nb]);
+      if (tentG < g[nb]) {
+        g[nb] = tentG;
+        f[nb] = tentG + haversine(nodes[nb], nodes[destIdx]);
+        prev[nb] = cur;
+        open.add(nb);
+      }
+    }
+  }
+
+  if (g[destIdx] === Infinity) {
+    log('A* could not find clear path — returning direct route', 'warn');
+    return [dep, dest];
+  }
+
+  const path = [];
+  let cur = destIdx;
+  while (cur !== -1) { path.unshift(nodes[cur]); cur = prev[cur]; }
+  return path;
+}
+
+function snapToFix(pt, maxDistNm = 15) {
+  let best = null, bestD = maxDistNm;
+  for (const fix of NAMED_FIXES) {
+    const d = haversine(pt, fix);
+    if (d < bestD) { bestD = d; best = fix; }
+  }
+  return best;
+}
+
+// Force ICAO coord notation (DDMM[N/S]DDDMM[E/W]) regardless of any `name`
+// property on the point. Use this for external paste strings where collisions
+// with real fix names (OGRES, KORER, etc.) in the target app's global database
+// would misroute the flight.
+function fmtCoordOnly(pt) {
+  const latAbs = Math.abs(pt.lat);
+  const lonAbs = Math.abs(pt.lon);
+  let latDeg = Math.floor(latAbs);
+  let latMin = Math.round((latAbs - latDeg) * 60);
+  if (latMin === 60) { latDeg += 1; latMin = 0; }
+  let lonDeg = Math.floor(lonAbs);
+  let lonMin = Math.round((lonAbs - lonDeg) * 60);
+  if (lonMin === 60) { lonDeg += 1; lonMin = 0; }
+  const latH = pt.lat >= 0 ? 'N' : 'S';
+  const lonH = pt.lon >= 0 ? 'E' : 'W';
+  return `${String(latDeg).padStart(2,'0')}${String(latMin).padStart(2,'0')}${latH}`
+       + `${String(lonDeg).padStart(3,'0')}${String(lonMin).padStart(2,'0')}${lonH}`;
+}
+
+// Display-friendly label: uses `pt.name` when present, else coord form.
+// Use this for on-screen text (map pins, Pilot Log, sidebar), NOT for
+// external route paste strings.
+function fmtCoord(pt) {
+  if (pt.name) return pt.name;
+  return fmtCoordOnly(pt);
+}
+
+// Token for use in an external route paste (SkyDemon, ForeFlight). Only real
+// ICAO airport codes pass through as names; everything else emits ICAO coord
+// form to prevent name collisions with unrelated fixes in the target app's
+// global database (e.g. our local "OGRES" vs. the real OGRES fix in Latvia).
+function toRouteToken(pt) {
+  if (pt.name && AIRPORTS[pt.name]) return pt.name;
+  return fmtCoordOnly(pt);
+}
+
+function fmtLevel(ft) {
+  if (ft == null) return '—';
+  if (ft >= 18000) return `FL${Math.round(ft/100).toString().padStart(3,'0')}`;
+  return `${ft.toLocaleString()} ft`;
+}
+
+// ICAO flight-plan altitude code. Altitudes below FL180 use A-prefix (hundreds
+// of feet MSL). At or above FL180 use F-prefix (flight level).
+function icaoAltCode(ft) {
+  if (ft == null) return null;
+  const hundreds = Math.round(ft / 100);
+  return (ft >= 18000 ? 'F' : 'A') + String(hundreds).padStart(3, '0');
+}
+
+// Build an ICAO flight-plan route string: each waypoint carries the
+// speed+altitude of the leg starting from it (`/NxxxxAyyy` or `/NxxxxFyyy`).
+// ForeFlight's Route field parses this; SkyDemon does not.
+function buildIcaoRouteString(path, legs, tasKnots) {
+  const tasStr = `N${String(Math.round(tasKnots)).padStart(4, '0')}`;
+  const parts = [];
+  for (let i = 0; i < path.length; i++) {
+    const pt = path[i];
+    const token = toRouteToken(pt);
+    const outbound = i < path.length - 1 ? legs[i] : null;
+    const alt = outbound ? icaoAltCode(outbound.pick.level) : null;
+    parts.push(alt ? `${token}/${tasStr}${alt}` : token);
+  }
+  return parts.join(' ');
+}
+
+// Textual pilot-log briefing, rendered in a monospace block in the sidebar.
+function buildPilotLog(path, legs, tasKnots, preferredFt) {
+  const lines = [];
+  const pad = (s, n) => (s + '          ').slice(0, n);
+  const totalDist = legs.reduce((s, l) => s + l.distNm, 0);
+  const totalMin = Math.round((totalDist / tasKnots) * 60);
+  const hrs = Math.floor(totalMin / 60), min = totalMin % 60;
+
+  const dep = path[0].name || fmtCoord(path[0]);
+  const dest = path[path.length-1].name || fmtCoord(path[path.length-1]);
+  lines.push(`${dep} → ${dest}`);
+  lines.push(`${totalDist.toFixed(0)} nm · TAS ${tasKnots} kt · ETE ${hrs}h${String(min).padStart(2,'0')}`);
+  lines.push(`Preferred ${fmtLevel(preferredFt)}`);
+  lines.push('');
+  lines.push(pad('LEG', 5) + pad('FROM→TO', 20) + pad('CRS', 6) + pad('DIST', 7) + pad('MSA', 9) + pad('ALT', 10) + 'ETE');
+  lines.push('─'.repeat(65));
+
+  for (let i = 0; i < legs.length; i++) {
+    const leg = legs[i];
+    const from = leg.a.name || fmtCoord(leg.a);
+    const to   = leg.b.name || fmtCoord(leg.b);
+    const fromTo = `${from}→${to}`;
+    const crs = `${String(Math.round(leg.course)).padStart(3,'0')}°T`;
+    const dist = `${leg.distNm.toFixed(0)} nm`;
+    const msa = leg.msaFt != null ? fmtLevel(leg.msaFt) : '—';
+    const bustMark = leg.pick.busts.length > 0 ? '!' : '';
+    const hemiMark = leg.pick.hemispheric ? '' : '*';
+    const alt = fmtLevel(leg.pick.level) + hemiMark + bustMark;
+    const legMin = Math.round((leg.distNm / tasKnots) * 60);
+    const legEte = `${Math.floor(legMin/60)}h${String(legMin%60).padStart(2,'0')}`;
+    lines.push(pad(String(i+1), 5) + pad(fromTo.slice(0,19), 20) + pad(crs, 6) + pad(dist, 7) + pad(msa, 9) + pad(alt, 10) + legEte);
+  }
+
+  // Per-leg notes: ! = busts airspace at chosen alt, * = non-hemispheric.
+  const notes = [];
+  for (let i = 0; i < legs.length; i++) {
+    const leg = legs[i];
+    if (leg.pick.busts.length > 0) {
+      const bustNames = leg.pick.busts.map(b => b.item.name || 'unnamed').join(', ');
+      notes.push(`Leg ${i+1}: ! busts at ${fmtLevel(leg.pick.level)}: ${bustNames}`);
+    }
+    if (!leg.pick.hemispheric) {
+      notes.push(`Leg ${i+1}: * ${fmtLevel(leg.pick.level)} non-hemispheric for ${Math.round(leg.course)}°T`);
+    } else if (leg.pick.deviatedFromPreferred && leg.pick.busts.length === 0) {
+      notes.push(`Leg ${i+1}: ${fmtLevel(leg.pick.level)} (preferred ${fmtLevel(preferredFt)} blocked)`);
+    }
+    // Summarise airspaces this leg laterally crosses (must-avoid only), excluding
+    // those already mentioned as busts at the chosen altitude.
+    const bustNameSet = new Set(leg.pick.busts.map(b => b.item.name));
+    const otherCrossed = leg.lateral
+      .filter(c => c.mustAvoid && !bustNameSet.has(c.item.name))
+      .map(c => c.item.name || 'unnamed');
+    if (otherCrossed.length) {
+      notes.push(`Leg ${i+1}: also crosses (cleared by altitude): ${otherCrossed.slice(0,5).join(', ')}${otherCrossed.length>5?`, +${otherCrossed.length-5} more`:''}`);
+    }
+    // VFR corridors available on this leg
+    for (const vs of (leg.vfrSectors || [])) {
+      const range = `${fmtAlt(vs.item.lowerLimit)}–${fmtAlt(vs.item.upperLimit)}`;
+      notes.push(`Leg ${i+1}: VFR corridor → ${vs.item.name || 'sector'} (${range})`);
+    }
+  }
+
+  if (notes.length) {
+    lines.push('');
+    lines.push('NOTES');
+    lines.push('─'.repeat(56));
+    lines.push(...notes);
+  }
+  return lines.join('\n');
+}
+
+function drawAirspace(items) {
+  airspaceLayers.forEach(l => map.removeLayer(l));
+  airspaceLayers = [];
+
+  for (const item of items) {
+    const poly = extractPolygon(item);
+    if (!poly) continue;
+
+    const cls = decodeIcaoClass(item.icaoClass);
+    const typ = decodeAirspaceType(item.type);
+    let color = '#888888';
+    if (['A','B','C'].includes(cls)) color = '#ff4455';
+    else if (cls === 'D') color = '#ffaa00';
+    else if (['RESTRICTED','PROHIBITED'].includes(typ)) color = '#ff00ff';
+    else if (typ === 'CTR') color = '#ff6600';
+
+    const layer = L.polygon(poly, {
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.12,
+      weight: 1.5,
+      dashArray: '4,3',
+      opacity: 0.7
+    });
+    if (airspaceVisible) layer.addTo(map);
+
+    const lower = fmtAlt(item.lowerLimit);
+    const upper = fmtAlt(item.upperLimit);
+    layer.bindPopup(`<b>${item.name || 'Airspace'}</b><br>Class ${cls}<br>${lower} – ${upper}`);
+    airspaceLayers.push(layer);
+    item._poly = poly;
+    item._cls = cls;
+  }
+  applyAirspaceVisibility();
+}
+
+function drawRoute(path, dep, dest) {
+  if (routeLayer) map.removeLayer(routeLayer);
+  markerLayers.forEach(l => map.removeLayer(l));
+  markerLayers = [];
+
+  const latlngs = path.map(p => [p.lat, p.lon]);
+
+  routeLayer = L.polyline(latlngs, {
+    color: '#00ff88',
+    weight: 3,
+    opacity: 0.9,
+  }).addTo(map);
+
+  const depIcon = L.divIcon({ html: `<div style="background:#00d4ff;color:#000;font-family:monospace;font-size:10px;padding:2px 5px;border-radius:2px;white-space:nowrap">${dep.name}</div>`, className: '', iconAnchor: [0,0] });
+  markerLayers.push(L.marker([dep.lat, dep.lon], { icon: depIcon }).addTo(map));
+
+  const destIcon = L.divIcon({ html: `<div style="background:#00ff88;color:#000;font-family:monospace;font-size:10px;padding:2px 5px;border-radius:2px;white-space:nowrap">${dest.name}</div>`, className: '', iconAnchor: [0,0] });
+  markerLayers.push(L.marker([dest.lat, dest.lon], { icon: destIcon }).addTo(map));
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const pt = path[i];
+    const label = pt.name || `WP${i}`;
+    const wpIcon = L.divIcon({ html: `<div style="width:6px;height:6px;background:#00ff88;border-radius:50%;border:1px solid #000"></div>`, className: '', iconAnchor: [3,3] });
+    markerLayers.push(L.marker([pt.lat, pt.lon], { icon: wpIcon })
+      .bindPopup(label).addTo(map));
+  }
+
+  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+}
+
+function populateAirspaceList(crossings) {
+  const ul = document.getElementById('airspaceList');
+  ul.innerHTML = '';
+  if (!crossings.length) {
+    ul.innerHTML = '<li style="font-size:12px;color:var(--muted);padding:4px 0">Route clears all airspace in band</li>';
+    return;
+  }
+  for (const x of crossings) {
+    const item = x.item;
+    const cls = decodeIcaoClass(item.icaoClass);
+    const typ = decodeAirspaceType(item.type);
+    const label = cls || (typ ? typ.slice(0,3) : '?');
+    const badgeCls = ['C','D'].includes(cls) ? cls
+      : typ === 'RESTRICTED' ? 'R'
+      : typ === 'PROHIBITED' ? 'P'
+      : 'other';
+    const lower = fmtAlt(item.lowerLimit);
+    const upper = fmtAlt(item.upperLimit);
+    const legTag = `leg ${x.legIdx + 1}: ${x.legFrom}→${x.legTo}`;
+    const li = document.createElement('li');
+    li.className = 'airspace-item';
+    li.innerHTML = `
+      <span class="airspace-class cls-${badgeCls}">${label}</span>
+      <span class="airspace-name">
+        <div>${(item.name||'Unknown').slice(0,28)}</div>
+        <div style="font-size:10px;color:var(--muted)">${legTag}</div>
+      </span>
+      <span class="airspace-alt">${lower}↑${upper}</span>`;
+    ul.appendChild(li);
+  }
+}
+
+function computeRouteCrossings(path, bandItems, shouldAvoidFn) {
+  const out = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i+1];
+    for (const item of bandItems) {
+      if (shouldAvoidFn && !shouldAvoidFn(item)) continue;
+      const poly = item._poly || extractPolygon(item);
+      if (!poly) continue;
+      if (segmentIntersectsPolygon(a, b, poly)) {
+        out.push({
+          item,
+          legIdx: i,
+          legFrom: a.name || fmtCoord(a),
+          legTo:   b.name || fmtCoord(b),
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function populateWaypointList(path, legs) {
+  const ul = document.getElementById('waypointList');
+  ul.innerHTML = '';
+  let cum = 0;
+  for (let i = 0; i < path.length; i++) {
+    const pt = path[i];
+    const label = pt.name || fmtCoord(pt);
+    const inbound = i > 0 ? legs[i-1] : null;
+    if (inbound) cum += inbound.distNm;
+    let altStr = '', altCls = '';
+    if (inbound) {
+      altStr = fmtLevel(inbound.pick.level);
+      if (inbound.pick.busts.length > 0) altCls = ' none';
+      else if (!inbound.pick.hemispheric) altCls = ' nonstd';
+    }
+    const li = document.createElement('li');
+    li.className = 'wp-item';
+    li.innerHTML = `
+      <span class="wp-num">${i+1}</span>
+      <span class="wp-name">${label}</span>
+      <span class="wp-alt${altCls}">${altStr}</span>
+      <span class="wp-dist">${cum.toFixed(0)} nm</span>`;
+    ul.appendChild(li);
+  }
+}
+
+function openInForeFlight() {
+  const plan = window._lastPlan;
+  if (!plan) { alert('Compute a route first.'); return; }
+  const waypoints = plan.path.map(toRouteToken).join('+');
+  const url = `foreflightmobile://maps/route?waypoints=${encodeURIComponent(waypoints)}`;
+
+  // The foreflightmobile:// URL scheme is registered only by the ForeFlight
+  // iOS app. macOS/Windows browsers don't have a handler and will show
+  // "address is invalid". In that case, copy the URL to clipboard so the
+  // user can paste/send it to an iPad/iPhone.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+  if (isIOS) {
+    window.location.href = url;
+    return;
+  }
+  navigator.clipboard.writeText(url).then(() => {
+    alert(`Not iOS — copied ForeFlight URL to clipboard.\n\nSend it to your iPad/iPhone (AirDrop, Messages, email) and tap to open in ForeFlight.\n\n${url}`);
+  }, () => {
+    prompt('Copy this URL and open it on your iPad:', url);
+  });
+}
+
+function copyRoute(outputId, hintId) {
+  // Back-compat: called with no args from older markup
+  outputId = outputId || 'routeOutput';
+  hintId   = hintId   || 'copyHint';
+  const str = document.getElementById(outputId).textContent;
+  if (str === '—') return;
+  navigator.clipboard.writeText(str).then(() => {
+    const hint = document.getElementById(hintId);
+    hint.textContent = '✓ Copied to clipboard';
+    hint.className = 'copy-hint copied';
+    setTimeout(() => { hint.textContent = 'Tap to copy'; hint.className = 'copy-hint'; }, 2000);
+  });
+}
+
+// Terrain elevation via OpenTopoData (SRTM 30m). Returns array of elevations
+// in feet MSL in the same order as points.
+async function fetchElevationsFt(points) {
+  if (!points.length) return [];
+  const CHUNK = 100; // OpenTopoData max locations per request
+  const out = [];
+  for (let i = 0; i < points.length; i += CHUNK) {
+    const chunk = points.slice(i, i + CHUNK);
+    const locStr = chunk.map(p => `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`).join('|');
+    const resp = await fetch(`/api/elevation?locations=${encodeURIComponent(locStr)}`);
+    if (!resp.ok) throw new Error(`Elevation ${resp.status}`);
+    const data = await resp.json();
+    if (data.status && data.status !== 'OK') throw new Error(`Elevation: ${data.error || data.status}`);
+    for (const r of (data.results || [])) {
+      const elevM = r.elevation != null ? r.elevation : 0;
+      out.push(elevM * 3.28084); // metres → feet
+    }
+    if (i + CHUNK < points.length) await new Promise(r => setTimeout(r, 1100)); // rate limit
+  }
+  return out;
+}
+
+// Compute per-leg MSA given sampled elevations and pilot's AGL separation
+// requirement. MSA (MSL) = max_terrain_ft + pilotMsaAgl, rounded up to 100 ft.
+// Over water, terrain is 0 so MSA = pilotMsaAgl.
+function computeLegMsa(elevationsFt, pilotMsaAgl) {
+  const maxFt = elevationsFt.reduce((m, e) => Math.max(m, e), 0);
+  return Math.ceil((maxFt + pilotMsaAgl) / 100) * 100;
+}
+
+// Sample a leg at N+1 equally spaced points including both endpoints.
+function sampleLegPoints(a, b, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push(interpolate(a, b, i / n));
+  return out;
+}
+
+// FAR 91.159 / SERA hemispheric VFR cruising altitudes.
+// Rule applies above 3000 ft AGL and below FL180. We approximate AGL
+// with MSL (no DEM) — the pilot's floor input is treated as the MSA proxy.
+// Eastbound 000°–179°: odd thousand + 500. Westbound 180°–359°: even thousand + 500.
+function hemisphericLevels(courseDeg, floorFt, ceilingFt) {
+  const east = courseDeg >= 0 && courseDeg < 180;
+  const base = east ? 3500 : 4500;
+  const step = 2000;
+  const minLevel = Math.max(floorFt, 3000);
+  const maxLevel = Math.min(ceilingFt, 17500);
+  const levels = [];
+  for (let L = base; L <= maxLevel; L += step) {
+    if (L >= minLevel) levels.push(L);
+  }
+  return levels;
+}
+
+function isHemispheric(levelFt, courseDeg) {
+  if (levelFt < 3000 || levelFt >= 18000) return true; // rule doesn't apply
+  if ((levelFt - 500) % 1000 !== 0) return false;
+  const thousands = (levelFt - 500) / 1000;
+  const east = courseDeg >= 0 && courseDeg < 180;
+  const odd = thousands % 2 === 1;
+  return east ? odd : !odd;
+}
+
+function airspaceLimits(item) {
+  return {
+    lower: parseAltFt(item.lowerLimit ?? item.floor, 'lower'),
+    upper: parseAltFt(item.upperLimit ?? item.ceiling, 'upper'),
+  };
+}
+
+// For a leg a→b, return info on airspaces crossed laterally (no alt filter).
+function legLateralCrossings(a, b, bandItems, shouldAvoidFn) {
+  const out = [];
+  for (const item of bandItems) {
+    const poly = item._poly || extractPolygon(item);
+    if (!poly) continue;
+    if (!segmentIntersectsPolygon(a, b, poly)) continue;
+    const { lower, upper } = airspaceLimits(item);
+    out.push({ item, poly, lower, upper, mustAvoid: shouldAvoidFn(item) });
+  }
+  return out;
+}
+
+// VFR corridors / transit sectors (OpenAIP type 32 VFR_SECTOR) crossed by a leg.
+// These are preferred/required VFR routings through/under controlled airspace.
+// Search allItems (not just bandItems) because a VFR sector's vertical limits
+// may not overlap the pilot's envelope but still be the correct TMA-transit route.
+// Controlled airspaces (TMA/CTR/CTA/MCTR) a leg enters that are NOT hard-avoid
+// — Class C/D/E transits where the pilot requests clearance en route. Used
+// for pilot-log annotation only; these do not trigger re-routing.
+function legTransitCrossings(a, b, bandItems, altFt) {
+  const out = [];
+  const TRANSIT_TYPES = new Set(['TMA','CTR','CTA','MCTR']);
+  for (const item of bandItems) {
+    const typ = decodeAirspaceType(item.type);
+    const cls = decodeIcaoClass(item.icaoClass);
+    if (!TRANSIT_TYPES.has(typ)) continue;
+    if (cls === 'A' || cls === 'B') continue; // hard-avoid, not transit
+    const poly = item._poly || extractPolygon(item);
+    if (!poly) continue;
+    if (!segmentIntersectsPolygon(a, b, poly)) continue;
+    const { lower, upper } = airspaceLimits(item);
+    if (altFt != null && (altFt < lower || altFt > upper)) continue; // below/above, no transit needed
+    out.push({ item, poly, lower, upper, cls, typ });
+  }
+  return out;
+}
+
+function legVfrSectorsCrossed(a, b, allItems) {
+  const out = [];
+  for (const item of allItems) {
+    if (decodeAirspaceType(item.type) !== 'VFR_SECTOR') continue;
+    const poly = item._poly || extractPolygon(item);
+    if (!poly) continue;
+    if (!segmentIntersectsPolygon(a, b, poly)) continue;
+    const { lower, upper } = airspaceLimits(item);
+    out.push({ item, poly, lower, upper });
+  }
+  return out;
+}
+
+// Pick the best altitude for a leg. VFR pilot preference: cruise at preferred
+// altitude even if it busts some controlled airspace (pilot requests clearance
+// en route). Only deviate from preferred if a different legal level CLEARS
+// everything. Order:
+//   1. Hemispheric nearest preferred, clears all (ideal)
+//   2. Any 500-ft step nearest preferred, clears all (non-hemispheric fallback)
+//   3. Hemispheric nearest preferred, accepting busts (realistic VFR cruise)
+//   4. 500-ft step nearest preferred, accepting busts (narrow envelope)
+function pickLegAltitude(lateralCrossings, courseDeg, preferredFt, floorFt, ceilingFt) {
+  const blockers = lateralCrossings.filter(c => c.mustAvoid);
+  const bustsAt = L => blockers.filter(b => L >= b.lower && L <= b.upper);
+  const byPref = (x, y) => Math.abs(x - preferredFt) - Math.abs(y - preferredFt);
+
+  const hemispheric = hemisphericLevels(courseDeg, floorFt, ceilingFt);
+  const hemiByPref = [...hemispheric].sort(byPref);
+
+  const allSteps = [];
+  for (let L = Math.ceil(floorFt/500)*500; L <= ceilingFt; L += 500) allSteps.push(L);
+  const stepsByPref = [...allSteps].sort(byPref);
+
+  const mk = (L, hemi, busts) => ({
+    level: L,
+    hemispheric: hemi,
+    deviatedFromPreferred: L !== preferredFt,
+    busts, blockedBy: busts,
+    unavoidable: busts.length > 0,
+  });
+
+  // 1. Hemispheric nearest preferred that clears
+  for (const L of hemiByPref) if (bustsAt(L).length === 0) return mk(L, true, []);
+
+  // 2. 500-ft step nearest preferred that clears
+  for (const L of stepsByPref) if (bustsAt(L).length === 0) return mk(L, isHemispheric(L, courseDeg), []);
+
+  // 3. Hemispheric nearest preferred, accept busts
+  if (hemiByPref.length) {
+    const L = hemiByPref[0];
+    return mk(L, true, bustsAt(L));
+  }
+
+  // 4. Step nearest preferred, accept busts
+  const L = stepsByPref[0] ?? Math.round(preferredFt / 500) * 500;
+  return mk(L, isHemispheric(L, courseDeg), bustsAt(L));
+}
+
+// An airspace is "unavoidable-by-altitude" iff its [lower, upper] fully contains
+// the pilot's [floor, ceiling] envelope — no altitude in the envelope clears it.
+function isAltitudeUnavoidable(asp, floorFt, ceilingFt) {
+  return asp.lower <= floorFt && asp.upper >= ceilingFt;
+}
+
+function populateWarningList(warnings) {
+  const ul = document.getElementById('warningList');
+  ul.innerHTML = '';
+  if (!warnings.length) {
+    ul.innerHTML = '<li style="font-size:12px;color:var(--muted);padding:4px 0">No warnings</li>';
+    return;
+  }
+  for (const w of warnings) {
+    const li = document.createElement('li');
+    li.className = 'warning-item';
+    li.innerHTML = `
+      <span class="warning-tag sev-${w.severity}">${w.tag}</span>
+      <span class="warning-text">${w.msg}</span>`;
+    ul.appendChild(li);
+  }
+}
+
+// Resolve an ICAO to {lat, lon, name} via the OpenAIP proxy when the user
+// types a code without picking from the typeahead. Returns null on miss.
+// The proxy's `search` does fuzzy matching (e.g. "LEBA" → LEBANON*), so we
+// filter for an exact icaoCode match and register the hit in AIRPORTS for
+// subsequent computes.
+async function resolveAirportByIcao(icao) {
+  if (!icao) return null;
+  try {
+    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=10`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const items = Array.isArray(data) ? data : (data.items || []);
+    const hit = items.find(a => (a.icaoCode || '').toUpperCase() === icao);
+    if (!hit) return null;
+    const ap = normalizeAirport(hit);
+    if (!ap) return null;
+    AIRPORTS[ap.code] = { lat: ap.lat, lon: ap.lon, name: ap.name };
+    return AIRPORTS[ap.code];
+  } catch (e) {
+    return null;
+  }
+}
+
+async function computeRoute() {
+  // Ensure country KBs are loaded before the first route compute so the A*
+  // has the published reporting points and hard-avoid rules in place.
+  await kbReady;
+
+  const depICAO  = document.getElementById('depICAO').value.trim().toUpperCase();
+  const destICAO = document.getElementById('destICAO').value.trim().toUpperCase();
+  const altPreferredFt = parseInt(document.getElementById('altPreferred').value);
+  const pilotMsaAgl    = parseInt(document.getElementById('altPilotMsa').value);
+  const altCeilingFt   = parseInt(document.getElementById('altCeiling').value);
+  const tasKt          = parseInt(document.getElementById('tasKt').value) || 120;
+  const altFloorFt     = pilotMsaAgl;
+
+  const opts = {
+    subdivide:           document.getElementById('optSubdivide').checked,
+    subdivideNm:         parseInt(document.getElementById('optSubdivideNm').value) || 150,
+    avoidDanger:         document.getElementById('optAvoidDanger').checked,
+    avoidRestricted:     document.getElementById('optAvoidRestricted').checked,
+    avoidMilitary:       document.getElementById('optAvoidMilitary').checked,
+    snapFixes:           document.getElementById('optSnapFixes').checked,
+  };
+
+  let dep  = AIRPORTS[depICAO];
+  let dest = AIRPORTS[destICAO];
+
+  // Fall back to OpenAIP if the user typed an ICAO without picking from the
+  // typeahead. Without this, anything not in the hardcoded AIRPORTS map fails
+  // silently with "Unknown departure/destination".
+  if (!dep)  dep  = await resolveAirportByIcao(depICAO);
+  if (!dest) dest = await resolveAirportByIcao(destICAO);
+
+  if (!dep)  { log(`Unknown departure: ${depICAO}`,  'err'); return; }
+  if (!dest) { log(`Unknown destination: ${destICAO}`, 'err'); return; }
+  if (pilotMsaAgl <= 0) { log('Pilot MSA must be positive', 'err'); return; }
+  if (altPreferredFt > altCeilingFt) {
+    log('Preferred altitude must not exceed ceiling', 'err'); return;
+  }
+
+  document.getElementById('routeBadge').textContent = `${depICAO} → ${destICAO}`;
+  document.title = `VFR Router — ${depICAO} → ${destICAO}`;
+
+  document.getElementById('computeBtn').disabled = true;
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('pilotLog').textContent = 'Computing…';
+  populateWarningList([]);
+  setStatus('loading', 'Fetching airspace…');
+  log(`Route: ${depICAO} → ${destICAO}`);
+  log(`Preferred ${fmtLevel(altPreferredFt)} | Pilot MSA ${pilotMsaAgl} ft AGL | Ceiling ${fmtLevel(altCeilingFt)}`);
+  if (LOADED_KBS.length) {
+    const kbSummary = LOADED_KBS.map(k => `${k.code.toUpperCase()} (${(k.reportingPoints||[]).length} pts, ${(k.rules||[]).length} rules)`).join(', ');
+    log(`KBs: ${kbSummary}`, 'ok');
+  } else {
+    log(`KBs: none loaded — route uses hardcoded fixes only`, 'warn');
+  }
+
+  const warnings = [];
+  try {
+    const [allItems, airportNodes] = await Promise.all([
+      fetchAirspace(dep, dest),
+      fetchAirportsInBbox(dep, dest).catch(e => { log(`airports fetch failed: ${e.message}`, 'warn'); return []; }),
+    ]);
+    log(`Received ${airportNodes.length} airports in bbox as A* turn-points`, 'ok');
+
+    const bandItems = filterToAltBand(allItems, altFloorFt, altCeilingFt);
+    log(`${bandItems.length} airspace items overlap envelope`, 'ok');
+
+    const rawClasses = [...new Set(bandItems.map(i => i.icaoClass).filter(v => v != null))].sort();
+    const rawTypes   = [...new Set(bandItems.map(i => i.type).filter(v => v != null))].sort();
+    log(`raw icaoClass values: [${rawClasses.join(',')}]`);
+    log(`raw type values: [${rawTypes.join(',')}]`);
+
+    drawAirspace(bandItems);
+
+    // Only airspaces that are genuinely not transitable under VFR are hard-avoid.
+    // Class A: VFR forbidden full stop (AIP ENR 1.2 note). Class B: impractical
+    // clearance for GA. Prohibited: always. Danger/Restricted/Military: user
+    // option-controlled. CTR-type items can be promoted via KB hard-avoid rules
+    // (e.g. CTR MADRID: civil VFR prohibited per AIP ENR 6.5-10). Everything
+    // else — Class C/D/E TMA/CTR/CTA/MCTR — is TRANSIT airspace: the pilot
+    // requests clearance en route. The router annotates these crossings in
+    // the pilot log; it does not detour around them. Detouring around every
+    // Class D TMA produces 500+ nm monstrosities for routes that real pilots
+    // fly direct with ATC on 120.xxx.
+    const AVOID_ICAO_CLASS = new Set(['A','B']);
+    const AVOID_TYPE = new Set();
+    AVOID_TYPE.add('PROHIBITED');
+    if (opts.avoidDanger)     AVOID_TYPE.add('DANGER');
+    if (opts.avoidRestricted) { AVOID_TYPE.add('RESTRICTED'); AVOID_TYPE.add('PROTECTED'); }
+    if (opts.avoidMilitary)   { AVOID_TYPE.add('TSA'); AVOID_TYPE.add('TRA'); AVOID_TYPE.add('MATZ'); AVOID_TYPE.add('ALERT'); AVOID_TYPE.add('WARNING'); }
+    const SKIP_TYPE = new Set(['AIRWAY','TMZ','RMZ','FIR','UIR','ADIZ','OTHER','FIS','ACC','VFR_SECTOR','TRP','GLIDING','SPORTING']);
+    log(`Avoid types: ${[...AVOID_TYPE].join(', ')}`);
+    // Country-KB hard-avoid rules (e.g. "CTR MADRID civil VFR prohibited").
+    // An item matches if its type is in the rule's `kinds` AND its name
+    // contains one of the `nameContains` tokens (case-insensitive).
+    const matchesKbHardAvoid = item => {
+      const t = decodeAirspaceType(item.type);
+      const nm = (item.name || '').toUpperCase();
+      for (const r of KB_HARD_AVOID_RULES) {
+        if (r.kinds && !r.kinds.includes(t)) continue;
+        if (r.nameContains && !r.nameContains.some(tok => nm.includes(tok))) continue;
+        return r;
+      }
+      return null;
+    };
+
+    const shouldAvoid = item => {
+      const c = decodeIcaoClass(item.icaoClass);
+      const t = decodeAirspaceType(item.type);
+      if (SKIP_TYPE.has(t)) return false;
+      if (matchesKbHardAvoid(item)) return true;
+      return AVOID_ICAO_CLASS.has(c) || AVOID_TYPE.has(t);
+    };
+
+    // Lateral obstacles: airspaces that cannot be cleared by altitude within
+    // the pilot's envelope. Their vertical band fully sandwiches [floor, ceiling],
+    // so no altitude in the envelope gets you over or under them.
+    const isFullSandwich = item => {
+      const { lower, upper } = airspaceLimits(item);
+      return lower <= altFloorFt && upper >= altCeilingFt;
+    };
+    // Special-use airspace is unconditionally lateral. The "alt-clearable"
+    // heuristic only considers the user's static envelope, not per-leg terrain
+    // MSA. In mountainous terrain (Sierra de Cazorla, Pyrenees) the effective
+    // floor often pushes above the airspace's lower limit, making "fly under"
+    // physically impossible. Treating RESTRICTED / DANGER / PROHIBITED / TSA /
+    // TRA / MATZ as always-lateral matches what a real pilot does — detour.
+    const ALWAYS_LATERAL_TYPE = new Set([
+      'RESTRICTED', 'DANGER', 'PROHIBITED', 'PROTECTED',
+      'TSA', 'TRA', 'MATZ', 'ALERT', 'WARNING'
+    ]);
+    const isAlwaysLateral = item => {
+      const t = decodeAirspaceType(item.type);
+      return ALWAYS_LATERAL_TYPE.has(t);
+    };
+    const avoidable = bandItems.filter(shouldAvoid);
+    // KB-flagged items are always lateral obstacles regardless of altitude
+    // (e.g. CTR MADRID is forbidden to civil VFR at any level).
+    const lateralObstacles = avoidable
+      .filter(item => isAlwaysLateral(item) || isFullSandwich(item) || matchesKbHardAvoid(item))
+      .map(item => ({
+        ...item,
+        poly: extractPolygon(item),
+        _obsType: decodeAirspaceType(item.type),
+        _cls: decodeIcaoClass(item.icaoClass),
+      }))
+      .filter(item => item.poly);
+    const verticalClearable = avoidable.length - lateralObstacles.length;
+    log(`${lateralObstacles.length} lateral obstacles (${verticalClearable} others clearable by altitude)`);
+
+    // Pre-extract VFR sector polygons. Used by A* as corridor cut-outs:
+    // a candidate leg that crosses a controlled-airspace obstacle (TMA/CTR/CTA/MCTR)
+    // is allowed iff the transit is covered by a VFR sector polygon.
+    const vfrSectorPolys = allItems
+      .filter(i => decodeAirspaceType(i.type) === 'VFR_SECTOR')
+      .map(i => ({ name: i.name, poly: extractPolygon(i) }))
+      .filter(i => i.poly);
+    log(`${vfrSectorPolys.length} VFR sector corridor${vfrSectorPolys.length===1?'':'s'} available`);
+
+    // Polygon extraction audit
+    const withPoly = bandItems.filter(i => extractPolygon(i));
+    if (withPoly.length < bandItems.length) {
+      log(`${bandItems.length - withPoly.length} band items have no extractable polygon`, 'warn');
+    }
+
+    // Direct-route audit (lateral busts, ignoring altitude)
+    const depPt  = { lat: dep.lat,  lon: dep.lon  };
+    const destPt = { lat: dest.lat, lon: dest.lon };
+    const directLateralBusts = avoidable
+      .map(item => ({ item, poly: extractPolygon(item) }))
+      .filter(x => x.poly && segmentIntersectsPolygon(depPt, destPt, x.poly));
+    log(`Direct ${depICAO}→${destICAO} laterally crosses ${directLateralBusts.length} must-avoid airspaces`,
+        directLateralBusts.length ? 'warn' : 'ok');
+    for (const x of directLateralBusts.slice(0, 10)) {
+      const name = x.item.name || 'unnamed';
+      const typ  = decodeAirspaceType(x.item.type) || '?';
+      const cls  = decodeIcaoClass(x.item.icaoClass) || '-';
+      const { lower, upper } = airspaceLimits(x.item);
+      const sandwich = lower <= altFloorFt && upper >= altCeilingFt ? ' [LATERAL-BLOCK]' : ' [alt-clearable]';
+      log(`  • ${name} (${typ}/${cls}, ${fmtAlt(x.item.lowerLimit)}–${fmtAlt(x.item.upperLimit)})${sandwich}`, 'warn');
+    }
+
+    // Which lateral obstacles (full sandwich) does the direct line actually intersect?
+    const directBlockers = lateralObstacles.filter(o => segmentIntersectsPolygon(depPt, destPt, o.poly));
+    log(`Direct line blocked by ${directBlockers.length} full-sandwich obstacle(s)`, directBlockers.length ? 'warn' : 'ok');
+    for (const b of directBlockers.slice(0, 10)) log(`  ⊘ ${b.name || 'unnamed'}`, 'warn');
+
+    setStatus('loading', 'Computing route…');
+
+    // Lateral obstacle set can grow during the plan-refine loop: if per-leg
+    // altitude selection says "no legal altitude clears this", the offending
+    // airspace is promoted to a lateral obstacle and A* re-runs, forcing a
+    // lateral deviation.
+    const itemKey = it => `${it.name||'?'}|${it.type}|${it.icaoClass}`;
+    const hardObstacles = [...lateralObstacles];
+    const hardKeys = new Set(hardObstacles.map(itemKey));
+
+    // Corpus-first: if (dep, dest) matches a pilot-validated route in the KB,
+    // use those waypoints directly. A* is only a fallback for routes the
+    // corpus doesn't cover. The pilot's route is ground truth.
+    const corpus = VALIDATED_ROUTES.find(r => r.dep === depICAO && r.dest === destICAO);
+    let corpusPath = null;
+    if (corpus) {
+      corpusPath = [{ lat: dep.lat, lon: dep.lon, name: depICAO }];
+      let missing = 0;
+      // `via` entries can be: KB name (string), raw {lat,lon}, or {name,lat?,lon?}.
+      // SkyDemon PLOG imports produce a mix — unnamed coord turn-points for
+      // Med crossings and named arrival fixes for VFR procedures.
+      for (const wp of (corpus.via || [])) {
+        if (typeof wp === 'string') {
+          const fix = NAMED_FIXES.find(f => f.name === wp);
+          if (fix) corpusPath.push({ name: fix.name, lat: fix.lat, lon: fix.lon, corridor: fix.corridor });
+          else { log(`Corpus waypoint not in KB: ${wp} — skipping`, 'warn'); missing++; }
+        } else if (wp && wp.lat != null && wp.lon != null) {
+          corpusPath.push({ name: wp.name, lat: wp.lat, lon: wp.lon });
+        } else if (wp && wp.name) {
+          const fix = NAMED_FIXES.find(f => f.name === wp.name);
+          if (fix) corpusPath.push({ name: fix.name, lat: fix.lat, lon: fix.lon, corridor: fix.corridor });
+          else { log(`Corpus waypoint name unresolved: ${wp.name} — skipping`, 'warn'); missing++; }
+        }
+      }
+      corpusPath.push({ lat: dest.lat, lon: dest.lon, name: destICAO });
+      const layer = corpus._layer || 'baked';
+      log(`CORPUS MATCH [${layer}]: ${depICAO}→${destICAO} via ${corpusPath.length - 2} validated waypoints (${corpus.source})${missing ? `; ${missing} missing` : ''}`, 'ok');
+    }
+
+    const MAX_PLAN_ITER = 4;
+    let dedupPath = null, legs = null, unavoidableAfterAllIters = false;
+
+    // Corpus path: build legs directly, no escalation iter loop. Altitudes
+    // come from corpus.altsFt when supplied; airspace busts are still surfaced.
+    if (corpusPath) {
+      dedupPath = corpusPath;
+      legs = [];
+      for (let i = 0; i < dedupPath.length - 1; i++) {
+        const a = dedupPath[i], b = dedupPath[i+1];
+        const course = bearing(a, b);
+        const lateral = legLateralCrossings(a, b, bandItems, shouldAvoid);
+        let pick;
+        if (Array.isArray(corpus.altsFt) && corpus.altsFt[i] != null) {
+          pick = {
+            level: corpus.altsFt[i],
+            hemispheric: false,
+            deviatedFromPreferred: corpus.altsFt[i] !== altPreferredFt,
+            busts: [],
+            blockedBy: [],
+            fromCorpus: true,
+          };
+          for (const x of lateral) {
+            if (x.mustAvoid && pick.level >= x.lower && pick.level <= x.upper) {
+              pick.busts.push({ item: x.item, poly: x.poly, lower: x.lower, upper: x.upper });
+            }
+          }
+        } else {
+          pick = pickLegAltitude(lateral, course, altPreferredFt, altFloorFt, altCeilingFt);
+        }
+        legs.push({ a, b, course, distNm: haversine(a, b), pick, lateral, msaFt: null, onCorridor: !!(a.corridor || b.corridor) });
+      }
+    }
+
+    for (let iter = 0; !corpusPath && iter < MAX_PLAN_ITER; iter++) {
+      const rawPath = computePath(
+        { lat: dep.lat,  lon: dep.lon  },
+        { lat: dest.lat, lon: dest.lon },
+        hardObstacles,
+        vfrSectorPolys,
+        airportNodes
+      );
+
+      const path = [{ lat: dep.lat, lon: dep.lon, name: depICAO }];
+      for (let i = 1; i < rawPath.length - 1; i++) {
+        const pt = rawPath[i];
+        const fix = opts.snapFixes ? snapToFix(pt) : null;
+        if (fix) {
+          const next = { lat: fix.lat, lon: fix.lon, name: fix.name };
+          if (fix.corridor) next.corridor = fix.corridor;
+          path.push(next);
+        } else {
+          path.push(pt);
+        }
+      }
+      path.push({ lat: dest.lat, lon: dest.lon, name: destICAO });
+
+      dedupPath = [path[0]];
+      for (let i = 1; i < path.length; i++) {
+        if (path[i].name !== dedupPath[dedupPath.length-1].name) dedupPath.push(path[i]);
+      }
+
+      // If A* gave up (returned bare [dep,dest] despite >0 obstacles), further
+      // escalation just piles on walls — stop and report.
+      if (rawPath.length === 2 && hardObstacles.length > 0 && iter > 0) {
+        log(`A* cannot route around ${hardObstacles.length} lateral obstacle${hardObstacles.length===1?'':'s'} — aborting escalation`, 'err');
+        legs = legs || [];
+        unavoidableAfterAllIters = true;
+        break;
+      }
+
+      legs = [];
+      const escalate = [];
+      for (let i = 0; i < dedupPath.length - 1; i++) {
+        const a = dedupPath[i], b = dedupPath[i+1];
+        const course = bearing(a, b);
+        const lateral = legLateralCrossings(a, b, bandItems, shouldAvoid);
+        // Terrain MSA will be filled in AFTER this loop (single batched
+        // elevation fetch for all legs). For now use userFloor as floor.
+        const pick = pickLegAltitude(lateral, course, altPreferredFt, altFloorFt, altCeilingFt);
+        legs.push({ a, b, course, distNm: haversine(a, b), pick, lateral, msaFt: null, onCorridor: !!(a.corridor || b.corridor) });
+
+        // Every avoidable bust must be resolved — either routed around or
+        // threaded via a VFR sector corridor. Busting + requesting clearance
+        // is not a valid output of this tool.
+        // Corridor-leg exception: TMA/CTA busts can be skipped on legs
+        // incident to a published VFR reporting point, because the AIP
+        // authorizes those transits. But ONLY for Class D/C/E — Class A is
+        // never VFR-legal regardless of a corridor tag, so always escalate it.
+        const legOnCorridor = !!(a.corridor || b.corridor);
+        for (const bust of pick.busts) {
+          const typ = decodeAirspaceType(bust.item.type);
+          const cls = decodeIcaoClass(bust.item.icaoClass);
+          if (legOnCorridor && (typ === 'TMA' || typ === 'CTA') && cls !== 'A') continue;
+          const k = itemKey(bust.item);
+          if (!hardKeys.has(k)) {
+            hardKeys.add(k);
+            escalate.push({ ...bust.item, poly: bust.poly, _obsType: typ, _cls: cls });
+          }
+        }
+      }
+
+      if (escalate.length === 0) break;
+      hardObstacles.push(...escalate);
+      log(`plan iter ${iter+1}: escalating ${escalate.length} full-sandwich airspace${escalate.length===1?'':'s'} to lateral obstacles`, 'warn');
+      for (const e of escalate.slice(0, 8)) log(`  ⇡ ${e.name || 'unnamed'}`, 'warn');
+
+      if (iter === MAX_PLAN_ITER - 1) unavoidableAfterAllIters = true;
+    }
+
+    // Terrain-aware MSA per leg. Sample ~20 points per leg, batch-fetch
+    // elevations, compute MSA = max_terrain + 1000 ft. Re-pick altitudes
+    // using max(userFloor, legMsa) as the floor.
+    setStatus('loading', 'Computing terrain MSA…');
+    try {
+      const SAMPLES_PER_LEG = 20;
+      const allSamples = [];
+      const legSampleRanges = [];
+      for (const leg of legs) {
+        const start = allSamples.length;
+        const pts = sampleLegPoints(leg.a, leg.b, SAMPLES_PER_LEG);
+        allSamples.push(...pts);
+        legSampleRanges.push([start, allSamples.length]);
+      }
+      log(`fetching terrain elevation for ${allSamples.length} sample points…`);
+      const elevsFt = await fetchElevationsFt(allSamples);
+
+      for (let i = 0; i < legs.length; i++) {
+        const [s, e] = legSampleRanges[i];
+        const msa = computeLegMsa(elevsFt.slice(s, e), pilotMsaAgl);
+        legs[i].msaFt = msa;
+
+        // Corpus paths: the pilot's chosen altitude is ground truth — do NOT
+        // override. Instead flag a conflict so the warnings panel can surface
+        // it for pilot review. A corpus altitude below MSA usually means the
+        // pilot is using visual terrain clearance (e.g. a VFR corridor under
+        // mountainous terrain), but it could also mean the route is stale.
+        if (legs[i].pick.fromCorpus) {
+          legs[i].pick.msaConflict = legs[i].pick.level < msa;
+          continue;
+        }
+
+        if (msa >= altCeilingFt) {
+          legs[i].pick = {
+            level: Math.round(msa / 500) * 500,
+            hemispheric: false,
+            deviatedFromPreferred: true,
+            busts: [],
+            blockedBy: [],
+            unavoidable: true,
+            msaAboveCeiling: true,
+          };
+          continue;
+        }
+        // Re-pick altitude using terrain-derived floor for this leg
+        legs[i].pick = pickLegAltitude(legs[i].lateral, legs[i].course, altPreferredFt, msa, altCeilingFt);
+      }
+      log(`MSA per leg: ${legs.map(l => `${Math.round(l.distNm)}nm→${fmtLevel(l.msaFt)}`).join(' | ')}`, 'ok');
+    } catch (err) {
+      log(`Terrain elevation fetch failed: ${err.message} — falling back to user-entered floor`, 'warn');
+    }
+
+    // Per-leg airspace summary: VFR sectors (if any in data), and Class C/D/E
+    // transit zones (TMA/CTR/CTA) the leg enters at its picked altitude —
+    // surfaced as info annotations so the pilot knows which APP frequencies
+    // to tune en route.
+    for (const leg of legs) {
+      leg.vfrSectors = legVfrSectorsCrossed(leg.a, leg.b, allItems);
+      leg.transits = legTransitCrossings(leg.a, leg.b, bandItems, leg.pick.level);
+    }
+
+    // Option: auto-subdivide legs longer than opts.subdivideNm. Do all splits
+    // up front (no elevation fetch inside the loop — OpenTopoData free tier
+    // rate-limits at ~1 req/sec and errors hit us at 429), then re-fetch
+    // elevation once for the final leg set.
+    if (opts.subdivide) {
+      const maxIter = 12;
+      let didSplit = false;
+      for (let iter = 0; iter < maxIter; iter++) {
+        let splitIdx = -1, splitDist = 0;
+        for (let i = 0; i < dedupPath.length - 1; i++) {
+          const d = haversine(dedupPath[i], dedupPath[i+1]);
+          if (d > opts.subdivideNm && d > splitDist) { splitIdx = i; splitDist = d; }
+        }
+        if (splitIdx < 0) break;
+        const a = dedupPath[splitIdx], b = dedupPath[splitIdx+1];
+        const mid = interpolate(a, b, 0.5);
+        const fix = opts.snapFixes ? snapToFix(mid, 60) : null;
+        const insertion = fix
+          ? { lat: fix.lat, lon: fix.lon, name: fix.name }
+          : { lat: mid.lat, lon: mid.lon };
+        const insName = insertion.name || fmtCoord(insertion);
+        if (insName === (a.name || fmtCoord(a)) || insName === (b.name || fmtCoord(b))) break;
+        dedupPath.splice(splitIdx + 1, 0, insertion);
+        log(`subdivide: split ${splitDist.toFixed(0)} nm leg at ${insName}`);
+        didSplit = true;
+      }
+
+      if (didSplit) {
+        // Rebuild legs from updated path, then re-fetch elevation ONCE.
+        legs = [];
+        for (let i = 0; i < dedupPath.length - 1; i++) {
+          const la = dedupPath[i], lb = dedupPath[i+1];
+          const lateral = legLateralCrossings(la, lb, bandItems, shouldAvoid);
+          legs.push({
+            a: la, b: lb,
+            course: bearing(la, lb),
+            distNm: haversine(la, lb),
+            lateral, msaFt: null, pick: null,
+          });
+        }
+        const samples = [];
+        const ranges = [];
+        for (const leg of legs) {
+          const s = samples.length;
+          samples.push(...sampleLegPoints(leg.a, leg.b, 20));
+          ranges.push([s, samples.length]);
+        }
+        try {
+          const elevs = await fetchElevationsFt(samples);
+          for (let i = 0; i < legs.length; i++) {
+            const [s, e] = ranges[i];
+            legs[i].msaFt = computeLegMsa(elevs.slice(s, e), pilotMsaAgl);
+            const floor = legs[i].msaFt < altCeilingFt ? legs[i].msaFt : altCeilingFt;
+            legs[i].pick = pickLegAltitude(legs[i].lateral, legs[i].course, altPreferredFt, floor, altCeilingFt);
+          }
+        } catch (err) {
+          log(`subdivide: elevation refetch failed (${err.message}) — using pilot MSA as floor`, 'warn');
+          for (const leg of legs) {
+            const floor = pilotMsaAgl;
+            leg.pick = pickLegAltitude(leg.lateral, leg.course, altPreferredFt, floor, altCeilingFt);
+            leg.msaFt = leg.msaFt ?? floor;
+          }
+        }
+        for (const leg of legs) {
+          leg.vfrSectors = legVfrSectorsCrossed(leg.a, leg.b, allItems);
+          leg.transits = legTransitCrossings(leg.a, leg.b, bandItems, leg.pick.level);
+        }
+      }
+    }
+
+    // Any leg still crossing a TMA/CTR after lateral planning is using a VFR
+    // sector corridor (A* only permits such crossings when covered by a VFR
+    // sector polygon — see isClear in computePath). Drop altitude into the
+    // corridor's vertical band so the output is flyable VFR.
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      const tmaBusts = leg.pick.busts.filter(b => {
+        const t = decodeAirspaceType(b.item.type);
+        return ['TMA','CTR','CTA','MCTR'].includes(t);
+      });
+      if (!tmaBusts.length || !leg.vfrSectors?.length) continue;
+      const candidates = leg.vfrSectors
+        .filter(v => v.upper > (leg.msaFt ?? pilotMsaAgl))
+        .map(v => Math.min(v.upper, altCeilingFt))
+        .sort((x, y) => y - x);
+      if (!candidates.length) continue;
+      const corridorCeiling = candidates[0];
+      const corridorFloor = Math.max(leg.msaFt ?? pilotMsaAgl, 1);
+      if (corridorFloor >= corridorCeiling) continue;
+      leg.pick = pickLegAltitude(leg.lateral, leg.course, corridorCeiling, corridorFloor, corridorCeiling);
+      leg.usedVfrCorridor = true;
+    }
+
+    // Build warnings from final leg set. Per leg we may have:
+    //  - hard busts (airspace unavoidable at any altitude in envelope) → err
+    //  - any surviving bust → err (the router failed to produce a legal route)
+    //  - non-hemispheric → warn
+    //  - altitude deviated from preferred → info
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      const legLabel = `${leg.a.name || fmtCoord(leg.a)}→${leg.b.name || fmtCoord(leg.b)} (${Math.round(leg.course)}°T)`;
+      if (leg.pick.msaAboveCeiling) {
+        warnings.push({
+          severity: 'err',
+          tag: `LEG ${i+1}`,
+          msg: `${legLabel}: terrain MSA ${fmtLevel(leg.msaFt)} exceeds ceiling ${fmtLevel(altCeilingFt)} — raise the ceiling or reroute.`,
+        });
+        continue;
+      }
+      // Separate authorized corridor transits (TMA/CTA on a corridor leg) from
+      // real busts. An AIP-published VFR reporting point transit through a
+      // Class D/C TMA is a legal outcome — not an error. Class A is always
+      // a real bust, corridor or not.
+      const transits = [], realBusts = [];
+      for (const b of leg.pick.busts) {
+        const t = decodeAirspaceType(b.item.type);
+        const c = decodeIcaoClass(b.item.icaoClass);
+        if (leg.onCorridor && (t === 'TMA' || t === 'CTA') && c !== 'A') transits.push(b);
+        else realBusts.push(b);
+      }
+      if (realBusts.length) {
+        const names = realBusts.map(b => b.item.name || 'unnamed').join(', ');
+        if (leg.pick.fromCorpus) {
+          warnings.push({
+            severity: 'warn',
+            tag: `LEG ${i+1} CORPUS`,
+            msg: `${legLabel} @ ${fmtLevel(leg.pick.level)}: corpus altitude conflicts with current airspace — busts ${names}. Source: pilot log; verify against current AIRAC/NOTAM.`,
+          });
+        } else {
+          warnings.push({
+            severity: 'err',
+            tag: `LEG ${i+1}`,
+            msg: `${legLabel} @ ${fmtLevel(leg.pick.level)}: cannot produce a legal VFR route — busts ${names}. Widen envelope, change dep/dest, or check that a VFR corridor exists.`,
+          });
+        }
+      }
+      if (leg.pick.fromCorpus && leg.pick.msaConflict) {
+        warnings.push({
+          severity: 'warn',
+          tag: `LEG ${i+1} CORPUS`,
+          msg: `${legLabel} @ ${fmtLevel(leg.pick.level)}: pilot's altitude is BELOW terrain MSA ${fmtLevel(leg.msaFt)}. Source-of-truth conflict — verify visual clearance against AIP terrain data.`,
+        });
+      }
+      if (transits.length) {
+        const names = transits.map(b => b.item.name || 'unnamed').join(', ');
+        warnings.push({
+          severity: 'info',
+          tag: `LEG ${i+1}`,
+          msg: `${legLabel} @ ${fmtLevel(leg.pick.level)}: via published VFR transit through ${names} (clearance per AIP).`,
+        });
+      }
+      // Controlled airspace transits (Class C/D/E TMA/CTR/CTA) the leg enters
+      // at its picked altitude — informational so the pilot knows which APP
+      // frequency to request clearance from. Not an error.
+      for (const t of (leg.transits || [])) {
+        const range = `${fmtAlt(t.item.lowerLimit)}–${fmtAlt(t.item.upperLimit)}`;
+        const name = t.item.name || 'unnamed';
+        warnings.push({
+          severity: 'info',
+          tag: `LEG ${i+1} ATC`,
+          msg: `${legLabel} @ ${fmtLevel(leg.pick.level)}: transits ${name} (${t.typ}/${t.cls}, ${range}) — request clearance en route.`,
+        });
+      }
+      if (!leg.pick.unavoidable && !leg.pick.hemispheric) {
+        warnings.push({
+          severity: 'warn',
+          tag: `LEG ${i+1}`,
+          msg: `${legLabel} @ ${fmtLevel(leg.pick.level)} is non-hemispheric for course ${Math.round(leg.course)}°T.`,
+        });
+      }
+      if (!leg.pick.unavoidable && leg.pick.hemispheric && leg.pick.deviatedFromPreferred) {
+        warnings.push({
+          severity: 'info',
+          tag: `LEG ${i+1}`,
+          msg: `${legLabel} @ ${fmtLevel(leg.pick.level)} — preferred ${fmtLevel(altPreferredFt)} blocked by airspace on this leg.`,
+        });
+      }
+      // Surface VFR corridors the leg threads. When the leg is routed via a
+      // corridor (usedVfrCorridor), call it out explicitly so the pilot knows
+      // the level was picked to stay inside the published sector.
+      for (const vs of (leg.vfrSectors || [])) {
+        const range = `${fmtAlt(vs.item.lowerLimit)}–${fmtAlt(vs.item.upperLimit)}`;
+        const name = vs.item.name || 'VFR sector';
+        const msg = leg.usedVfrCorridor
+          ? `${legLabel}: routed via ${name} (${range}) at ${fmtLevel(leg.pick.level)}.`
+          : `${legLabel}: ${name} (${range}) available on this leg.`;
+        warnings.push({
+          severity: 'info',
+          tag: `LEG ${i+1} VFR`,
+          msg,
+        });
+      }
+    }
+    if (unavoidableAfterAllIters) {
+      warnings.push({
+        severity: 'warn',
+        tag: 'PLAN',
+        msg: `Plan refine hit max iterations (${MAX_PLAN_ITER}); some conflicts may remain.`,
+      });
+    }
+
+    const routeStr = dedupPath.map(toRouteToken).join(' ');
+    document.getElementById('routeOutput').textContent = routeStr;
+
+    // ForeFlight accepts ICAO flight-plan syntax with speed/altitude markers.
+    const ffRouteStr = buildIcaoRouteString(dedupPath, legs, tasKt);
+    document.getElementById('foreflightOutput').textContent = ffRouteStr;
+
+    const depTimeEl = document.getElementById('depTime');
+    const initialLevel = legs[0]?.pick?.level;
+    const totalMinTotal = Math.round(legs.reduce((s, l) => s + l.distNm, 0) / tasKt * 60);
+    const eteStr = `${Math.floor(totalMinTotal/60)}h${String(totalMinTotal%60).padStart(2,'0')}`;
+    const ffMetaLines = [];
+    if (depTimeEl.value) ffMetaLines.push(`Departure: ${depTimeEl.value.replace('T', ' ')} local`);
+    if (initialLevel != null) ffMetaLines.push(`Initial cruise: ${fmtLevel(initialLevel)}  ·  TAS ${tasKt} kt  ·  ETE ${eteStr}`);
+    document.getElementById('foreflightMeta').textContent = ffMetaLines.join('\n');
+    window._lastPlan = { path: dedupPath, legs, tasKt, depTimeLocal: depTimeEl.value };
+
+    const pilotLog = buildPilotLog(dedupPath, legs, tasKt, altPreferredFt);
+    document.getElementById('pilotLog').textContent = pilotLog;
+
+    drawRoute(dedupPath, dep, dest);
+    populateWaypointList(dedupPath, legs);
+
+    const routeCrossings = computeRouteCrossings(dedupPath, bandItems, shouldAvoid);
+    populateAirspaceList(routeCrossings);
+
+    const totalDist = legs.reduce((s, l) => s + l.distNm, 0);
+    document.getElementById('statDist').textContent = `${totalDist.toFixed(0)} nm`;
+    document.getElementById('statWpts').textContent = dedupPath.length;
+    document.getElementById('statAvoided').textContent = lateralObstacles.length;
+    document.getElementById('statAlt').textContent =
+      `pref ${fmtLevel(altPreferredFt)} · MSA +${pilotMsaAgl} AGL · ceil ${fmtLevel(altCeilingFt)}`;
+
+    populateWarningList(warnings);
+
+    const hasErr = warnings.some(w => w.severity === 'err');
+    setStatus(hasErr ? 'error' : 'active', hasErr ? 'Route has unavoidable airspace' : 'Route computed');
+    log(`Done — ${dedupPath.length} waypoints, ${totalDist.toFixed(0)} nm, ${warnings.length} warning${warnings.length===1?'':'s'}`,
+        hasErr ? 'err' : 'ok');
+
+  } catch(err) {
+    log(err.message, 'err');
+    setStatus('error', 'Error');
+    console.error(err);
+  }
+
+  document.getElementById('computeBtn').disabled = false;
+}
+
+// Airport typeahead: turn dep/dest fields into searchable lookups against the
+// OpenAIP airports API. Matches get merged into AIRPORTS so the router treats
+// them as known waypoints.
+function normalizeAirport(raw) {
+  const icao = (raw.icaoCode || raw.icao || '').toUpperCase();
+  const iata = (raw.iataCode || raw.iata || '').toUpperCase();
+  const code = icao || iata;
+  if (!code) return null;
+  let lat, lon;
+  if (raw.geometry && Array.isArray(raw.geometry.coordinates)) {
+    lon = raw.geometry.coordinates[0];
+    lat = raw.geometry.coordinates[1];
+  } else if (raw.coordinates && typeof raw.coordinates === 'object') {
+    lat = raw.coordinates.lat ?? raw.coordinates.latitude;
+    lon = raw.coordinates.lon ?? raw.coordinates.lng ?? raw.coordinates.longitude;
+  } else {
+    lat = raw.lat ?? raw.latitude;
+    lon = raw.lon ?? raw.lng ?? raw.longitude;
+  }
+  if (typeof lat !== 'number' || typeof lon !== 'number') return null;
+  return {
+    code, icao, iata,
+    name: raw.name || code,
+    country: (raw.country || '').toUpperCase(),
+    lat, lon,
+  };
+}
+
+function setupAirportSearch(inputId, resultsId) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  if (!input || !results) return;
+
+  let debounceTimer = null;
+  let currentReqId = 0;
+  let items = [];
+  let activeIdx = -1;
+
+  function close() {
+    results.classList.remove('open');
+    results.innerHTML = '';
+    activeIdx = -1;
+    items = [];
+  }
+
+  function pick(ap) {
+    input.value = ap.code;
+    // Register in the router's airport table so planning works immediately.
+    AIRPORTS[ap.code] = { lat: ap.lat, lon: ap.lon, name: ap.name };
+    close();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function render() {
+    if (!items.length) {
+      results.innerHTML = '<div class="ap-empty">No airports found</div>';
+      results.classList.add('open');
+      return;
+    }
+    results.innerHTML = items.map((ap, i) => {
+      const sub = ap.iata && ap.iata !== ap.code ? ` / ${ap.iata}` : '';
+      return `<div class="airport-result${i===activeIdx?' active':''}" data-idx="${i}">
+        <span class="ap-code">${ap.code}${sub}</span>
+        <span class="ap-name">${ap.name.replace(/</g,'&lt;')}</span>
+        <span class="ap-country">${ap.country}</span>
+      </div>`;
+    }).join('');
+    results.classList.add('open');
+    results.querySelectorAll('.airport-result').forEach(el => {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // keep focus so blur doesn't close first
+        const idx = Number(el.dataset.idx);
+        if (items[idx]) pick(items[idx]);
+      });
+    });
+  }
+
+  async function doSearch(q) {
+    const reqId = ++currentReqId;
+    try {
+      const resp = await fetch(`/api/airports?search=${encodeURIComponent(q)}&limit=10`);
+      if (!resp.ok) { if (reqId === currentReqId) { items = []; render(); } return; }
+      const data = await resp.json();
+      if (reqId !== currentReqId) return; // stale response
+      const raw = Array.isArray(data) ? data : (data.items || data.data || []);
+      items = raw.map(normalizeAirport).filter(Boolean);
+      activeIdx = -1;
+      render();
+    } catch(e) {
+      if (reqId === currentReqId) { items = []; render(); }
+    }
+  }
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 2) { close(); return; }
+    debounceTimer = setTimeout(() => doSearch(q), 250);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (!results.classList.contains('open') || !items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = (activeIdx + 1) % items.length;
+      render();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = (activeIdx - 1 + items.length) % items.length;
+      render();
+    } else if (e.key === 'Enter') {
+      if (activeIdx >= 0 && items[activeIdx]) {
+        e.preventDefault();
+        pick(items[activeIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    // Delay so a click on a result can fire first.
+    setTimeout(close, 150);
+  });
+}
+
+setupAirportSearch('depICAO', 'depICAOResults');
+setupAirportSearch('destICAO', 'destICAOResults');
+
+// ─── PILOT CORPUS MERGE ─────────────────────────────────────────────────────
+const USER_CORPUS_KEY = 'vfr_user_corpus_v1';
+let _bakedCount = 0;
+let _sharedCount = 0;
+
+function loadUserCorpus() {
+  try { return JSON.parse(localStorage.getItem(USER_CORPUS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function overlayRoute(r, tag) {
+  const i = VALIDATED_ROUTES.findIndex(v => v.dep === r.dep && v.dest === r.dest);
+  if (i >= 0) VALIDATED_ROUTES.splice(i, 1);
+  VALIDATED_ROUTES.push({ ...r, _layer: tag });
+}
+
+async function fetchSharedCorpus() {
+  try {
+    const resp = await fetch('/api/corpus');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    _sharedCount = (data.items || []).length;
+    for (const r of (data.items || [])) overlayRoute(r, 'shared');
+  } catch (e) {
+    console.warn('Shared corpus fetch failed:', e.message);
+  }
+}
+
+function mergeUserCorpusIntoLive() {
+  const user = loadUserCorpus();
+  for (const r of user) overlayRoute(r, 'local');
+  updateCorpusStatus();
+}
+
+kbReady.then(() => {
+  _bakedCount = VALIDATED_ROUTES.length;
+}).then(fetchSharedCorpus).then(mergeUserCorpusIntoLive);
+window.addEventListener('focus', () => {
+  fetchSharedCorpus().then(mergeUserCorpusIntoLive);
+});
+
+function updateCorpusStatus() {
+  const el = document.getElementById('corpusStatus');
+  if (!el) return;
+  const localCount = loadUserCorpus().length;
+  el.textContent = `${VALIDATED_ROUTES.length} validated routes loaded (${_bakedCount} baked, ${_sharedCount} shared, ${localCount} local).`;
+}
+</script>
+
+</body>
+</html>

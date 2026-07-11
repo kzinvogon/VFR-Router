@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Netlify auto-detects the runtime from package.json (Node 20 by default).
+# If you want to pin the Node version explicitly, uncomment:
+# [build.environment]
+#   NODE_VERSION = "20"
+
+[functions]
+  # esbuild is the default bundler; it resolves the @anthropic-ai/sdk import.
+  node_bundler = "esbuild"

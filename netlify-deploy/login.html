@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/_styles.css">
+<style>
+  #codeStep { display:none; }
+  .code-row input {
+    text-align:center; font-size:20px; letter-spacing:8px; padding:14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">VFR ROUTER ▸ SIGN IN</span>
+  </header>
+
+  <h1>Sign in</h1>
+  <p class="lead">Passwordless: enter your email, get a 6-digit code, paste it back. No password to forget.</p>
+
+  <div class="panel">
+    <div class="panel-title">Step 1 — Email</div>
+    <form id="emailForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="email">
+      <button class="btn" type="submit" id="emailBtn">▸ Send 6-digit code</button>
+    </form>
+  </div>
+
+  <div class="panel" id="codeStep">
+    <div class="panel-title">Step 2 — Code <span class="muted" id="emailLabel"></span></div>
+    <form id="codeForm">
+      <label for="code">6-digit code (valid 10 minutes)</label>
+      <div class="code-row"><input id="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></div>
+      <button class="btn" type="submit" id="codeBtn">▸ Sign in</button>
+      <button class="btn btn-secondary" type="button" id="resendBtn" style="margin-left:8px">↻ Resend</button>
+    </form>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <p class="muted" style="text-align:center;font-size:13px;margin-top:18px">
+    No account yet? <a href="/register.html" style="color:var(--accent)">Register</a>
+  </p>
+</div>
+
+<script src="/_nav.js"></script>
+<script>
+renderNav('login');
+
+const status = document.getElementById('status');
+const emailForm = document.getElementById('emailForm');
+const codeForm = document.getElementById('codeForm');
+const codeStep = document.getElementById('codeStep');
+const emailLabel = document.getElementById('emailLabel');
+const emailInput = document.getElementById('email');
+const codeInput = document.getElementById('code');
+
+// Pre-fill email from query string (e.g. arriving from /register.html)
+const params = new URLSearchParams(location.search);
+if (params.get('email')) emailInput.value = params.get('email');
+
+function showStatus(msg, kind) {
+  status.className = `status show ${kind}`;
+  status.textContent = msg;
+}
+
+async function requestCode(email) {
+  showStatus('Sending code…', 'info');
+  const resp = await fetch('/api/auth/request-code', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    showStatus(`✗ ${data.error || resp.status}`, 'err');
+    return false;
+  }
+  showStatus(`✓ ${data.message || 'Code sent — check your inbox.'}`, 'ok');
+  return true;
+}
+
+emailForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = emailInput.value.trim().toLowerCase();
+  if (!email) return;
+  document.getElementById('emailBtn').disabled = true;
+  if (await requestCode(email)) {
+    emailLabel.textContent = `(${email})`;
+    codeStep.style.display = 'block';
+    setTimeout(() => codeInput.focus(), 50);
+  }
+  document.getElementById('emailBtn').disabled = false;
+});
+
+document.getElementById('resendBtn').addEventListener('click', async () => {
+  const email = emailInput.value.trim().toLowerCase();
+  if (email) await requestCode(email);
+});
+
+codeForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = emailInput.value.trim().toLowerCase();
+  const code = codeInput.value.trim();
+  document.getElementById('codeBtn').disabled = true;
+  showStatus('Verifying…', 'info');
+  try {
+    const resp = await fetch('/api/auth/verify-code', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showStatus(`✗ ${data.error || resp.status}`, 'err');
+      document.getElementById('codeBtn').disabled = false;
+      return;
+    }
+    showStatus(`✓ Signed in as ${data.user.firstName}. Redirecting…`, 'ok');
+    setTimeout(() => { location.href = '/'; }, 600);
+  } catch (err) {
+    showStatus(`✗ ${err.message}`, 'err');
+    document.getElementById('codeBtn').disabled = false;
+  }
+});
+</script>
+</body>
+</html>

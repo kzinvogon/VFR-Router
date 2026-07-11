@@ -1,0 +1,65 @@
+{
+  "country": "FR",
+  "name": "France (SIA)",
+  "airac": "2026-04",
+  "schemaVersion": 1,
+  "sources": [
+    "SIA (Service de l'Information Aéronautique) — AIP France ENR 1.2 / ENR 6",
+    "EASA SERA (Standardized European Rules of the Air) baseline"
+  ],
+  "notes": "Reporting-point ingestion pending. French VAC/ENR 6 PDFs from sia.aviation-civile.gouv.fr can be dropped into VFR Maps/ and run through the same parser used for Spanish AIP. This stub carries only the always-true regulatory rules so multi-country KB plumbing is exercised and the hard-avoid rules for LFPG/LFPO apply even before reporting-point data lands.",
+  "pendingCorridors": [
+    {
+      "airport": "LFMN",
+      "name": "Nice Côte d'Azur",
+      "description": "Published VFR coastal corridors (cheminements côtiers) along the Côte d'Azur — westbound and eastbound at separate altitudes, with named reporting points along the shoreline (CAGNES, CAP D'ANTIBES, CAP FERRAT, etc.). Do NOT hard-avoid LFMN CTR/TMA — route via corridor.",
+      "needs": "AIP France ENR 6 / LF_AD_2_LFMN VAC — reporting-point coordinates tagged corridor: 'FR-VFR'"
+    },
+    {
+      "airport": "LFML",
+      "name": "Marseille Provence",
+      "description": "Published VFR transits; similar corridor pattern to Nice.",
+      "needs": "AIP France ENR 6 / LF_AD_2_LFML VAC"
+    }
+  ],
+  "reportingPoints": [],
+  "rules": [
+    {
+      "id": "FR-CLASS-A-NO-VFR",
+      "statement": "Class A airspace does not accept VFR flights.",
+      "source": "EASA SERA.5005 / AIP France ENR 1.2",
+      "enforced": true,
+      "appliesTo": "routing"
+    },
+    {
+      "id": "FR-MAX-FL195",
+      "statement": "VFR flights shall not operate above FL195 without specific authorization.",
+      "source": "AIP France ENR 1.2",
+      "enforced": false,
+      "appliesTo": "ceiling-input-validation"
+    },
+    {
+      "id": "FR-MIN-ALT-POPULATED",
+      "statement": "Over populated areas: ≥1000 ft above highest obstacle within 600 m; elsewhere ≥500 ft AGL.",
+      "source": "EASA SERA.3105 / AIP France ENR 1.2",
+      "enforced": true,
+      "appliesTo": "pilot-msa-default"
+    },
+    {
+      "id": "FR-CTR-PARIS-CDG-NO-VFR",
+      "statement": "Paris Charles de Gaulle (LFPG) does not accept VFR traffic — CTR forbidden to civil VFR.",
+      "source": "AIP France AD 2.LFPG",
+      "enforced": true,
+      "appliesTo": "hard-avoid-by-name",
+      "hardAvoid": { "kinds": ["CTR"], "nameContains": ["PARIS CHARLES", "CHARLES DE GAULLE", "LFPG", "ROISSY"] }
+    },
+    {
+      "id": "FR-CTR-PARIS-ORLY-NO-VFR",
+      "statement": "Paris Orly (LFPO) does not accept VFR traffic outside published VFR routes.",
+      "source": "AIP France AD 2.LFPO",
+      "enforced": true,
+      "appliesTo": "hard-avoid-by-name",
+      "hardAvoid": { "kinds": ["CTR"], "nameContains": ["PARIS ORLY", "LFPO", "ORLY"] }
+    }
+  ]
+}

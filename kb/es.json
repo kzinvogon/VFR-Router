@@ -1,0 +1,1880 @@
+{
+  "country": "ES",
+  "name": "Spain (ENAIRE)",
+  "airac": "2025-04",
+  "schemaVersion": 1,
+  "sources": [
+    "ENAIRE AIP ENR 1.2 Visual Flight Rules (12-JUN-25)",
+    "ENAIRE AIP ENR 6.2 Barcelona TMA VFR chart",
+    "ENAIRE AIP ENR 6.4 Galicia TMA VFR chart",
+    "ENAIRE AIP ENR 6.5 Madrid TMA VFR chart",
+    "ENAIRE AIP ENR 6.7 Sevilla TMA VFR chart",
+    "ENAIRE AIP AD 2-LEAB VAC Albacete",
+    "ENAIRE AIP AD 2-LEVC VAC Valencia",
+    "ENAIRE AIP AD 2-LEAL VAC Alicante",
+    "ENAIRE AIP AD 2-LELC VAC Murcia/San Javier",
+    "ENAIRE AIP AD 2-LEAM VAC Almería",
+    "ENAIRE AIP AD 2-LEMG VAC Málaga",
+    "ENAIRE AIP AD 2-LEBZ VAC Badajoz",
+    "ENAIRE AIP AD 2-LEZG VAC Zaragoza",
+    "ENAIRE AIP AD 2-LETO VAC Madrid/Torrejón"
+  ],
+  "reportingPoints": [
+    {
+      "name": "BCN:ALBESA",
+      "lat": 41.74583,
+      "lon": 0.66639,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ALCOVER",
+      "lat": 41.26611,
+      "lon": 1.16306,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ALFARRÁS",
+      "lat": 41.82528,
+      "lon": 0.56694,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CASTILLO DE MONTSORIÚ",
+      "lat": 41.77667,
+      "lon": 2.55972,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:Cruce A7/E15 AP7",
+      "lat": 40.99833,
+      "lon": 0.90861,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA BISBAL D'EMPORDÁ",
+      "lat": 41.96889,
+      "lon": 3.04611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LES PLANES D'HOSTOLES",
+      "lat": 42.04806,
+      "lon": 2.53083,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:EL VILOT",
+      "lat": 41.63361,
+      "lon": 0.49194,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:FALSET",
+      "lat": 41.13778,
+      "lon": 0.82222,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SUCS",
+      "lat": 41.70056,
+      "lon": 0.40667,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TOSSA DE MAR",
+      "lat": 41.72306,
+      "lon": 2.93167,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT MARTÍ DE CAMPMAJOR",
+      "lat": 42.12278,
+      "lon": 2.69,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:RODA DE BARÁ",
+      "lat": 41.17944,
+      "lon": 1.46389,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ALBELDA",
+      "lat": 41.87139,
+      "lon": 0.48194,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ALCARRÁS",
+      "lat": 41.605,
+      "lon": 0.47833,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LES PRESES",
+      "lat": 42.14944,
+      "lon": 2.45722,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ALGERRI",
+      "lat": 41.81611,
+      "lon": 0.63806,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LES TERRADES",
+      "lat": 42.17722,
+      "lon": 2.21361,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ARBUCIES",
+      "lat": 41.81639,
+      "lon": 2.50583,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LLARDECANS",
+      "lat": 41.37722,
+      "lon": 0.54222,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ARENYS DE MAR",
+      "lat": 41.57722,
+      "lon": 2.55028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MAÇANET DE CABRENYS",
+      "lat": 42.38667,
+      "lon": 2.74972,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ARTESA DE LLEIDA",
+      "lat": 41.55333,
+      "lon": 0.70417,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MANRESA",
+      "lat": 41.72722,
+      "lon": 1.82611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ARTESA DE SEGRE",
+      "lat": 41.89333,
+      "lon": 1.05,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MARTORELL",
+      "lat": 41.51389,
+      "lon": 1.9325,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:BELLPUIG",
+      "lat": 41.62611,
+      "lon": 1.00944,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MAS DE LA BASA DE MILLET",
+      "lat": 41.83639,
+      "lon": 0.95,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:BELL-LLOC D’URGELL",
+      "lat": 41.63083,
+      "lon": 0.77639,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MASÍA DEL CALIU",
+      "lat": 41.76972,
+      "lon": 0.89611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:BINEFAR",
+      "lat": 41.81639,
+      "lon": 0.32278,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MATARÓ",
+      "lat": 41.55278,
+      "lon": 2.49194,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:BIOSCA",
+      "lat": 41.84472,
+      "lon": 1.36028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:MONTBLANC",
+      "lat": 41.3675,
+      "lon": 1.16528,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:BOADELLA D’EMPORDÁ",
+      "lat": 42.3275,
+      "lon": 2.85333,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:OLOT",
+      "lat": 42.18139,
+      "lon": 2.48694,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CALAF",
+      "lat": 41.73528,
+      "lon": 1.51306,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PANTÁ DE SANTA ANNA",
+      "lat": 41.89639,
+      "lon": 0.61389,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CALLADRONS",
+      "lat": 42.07167,
+      "lon": 0.53583,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PANTÁ DE UTXECA SECA",
+      "lat": 41.49194,
+      "lon": 0.51,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CAMPMANY",
+      "lat": 42.37222,
+      "lon": 2.91917,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PERALTA DE LA SAL",
+      "lat": 41.98556,
+      "lon": 0.41194,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CAN RAMON",
+      "lat": 41.96667,
+      "lon": 1.45417,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PLA DE LA FIGUERA",
+      "lat": 41.46139,
+      "lon": 1.10028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CARDEDEU",
+      "lat": 41.64083,
+      "lon": 2.35333,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PLANA D’ESTAMARIU",
+      "lat": 42.36889,
+      "lon": 1.55778,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CORBERA",
+      "lat": 41.40917,
+      "lon": 1.8675,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PLANS DE MANDRIC",
+      "lat": 42.35806,
+      "lon": 1.89333,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:CORTAL DEL TEIXIDOR",
+      "lat": 42.39333,
+      "lon": 1.52806,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT FELIÚ DE GUIXOLS",
+      "lat": 41.81528,
+      "lon": 3.06917,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:DEVESA D’EN JOAN",
+      "lat": 42.42722,
+      "lon": 1.34278,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PLETA DE VILALLOBENT",
+      "lat": 42.38194,
+      "lon": 1.96667,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:EL PAPIOL",
+      "lat": 41.44222,
+      "lon": 2.00972,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:PORT DE L’ESTARTIT",
+      "lat": 42.05556,
+      "lon": 3.20056,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:EL PLA DE L’ORRI",
+      "lat": 42.19667,
+      "lon": 1.93861,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:RIGUALA DE SERRADUY",
+      "lat": 42.31944,
+      "lon": 0.60361,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:EL PLANELL",
+      "lat": 42.14583,
+      "lon": 1.20583,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ROSES",
+      "lat": 42.26528,
+      "lon": 3.17778,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ELS CANADELLS",
+      "lat": 42.34444,
+      "lon": 2.64194,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:RUBÍ",
+      "lat": 41.50222,
+      "lon": 2.0125,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ERMITA DE SANT FELIU DE RIU",
+      "lat": 42.29222,
+      "lon": 2.59333,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SABADELL PUNTO E",
+      "lat": 41.555,
+      "lon": 2.18889,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:ESBLADA",
+      "lat": 41.44611,
+      "lon": 1.44028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT CELONI",
+      "lat": 41.68583,
+      "lon": 2.48667,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:FIGUERES",
+      "lat": 42.26472,
+      "lon": 2.96278,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:GARRIGUELLA",
+      "lat": 42.34361,
+      "lon": 3.06361,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT HILARI SACALM",
+      "lat": 41.87861,
+      "lon": 2.51472,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT JAUME DE LLIERCA",
+      "lat": 42.21306,
+      "lon": 2.60444,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANT PAU DE LA GUARDIA",
+      "lat": 41.60278,
+      "lon": 1.74611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANTA BÁRBARA DE PRUNERES",
+      "lat": 42.27556,
+      "lon": 2.56,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:L’ALBAGÉS",
+      "lat": 41.44722,
+      "lon": 0.74028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANTA COLOMA DE GRAMANET",
+      "lat": 41.45389,
+      "lon": 2.25222,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:L’AMETLLA DE MONTSEC",
+      "lat": 42.01333,
+      "lon": 0.82361,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SANTA CRISTINA D’ARO",
+      "lat": 41.81528,
+      "lon": 2.99028,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:L’ARBOLI",
+      "lat": 41.24611,
+      "lon": 0.93861,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SITGES",
+      "lat": 41.26083,
+      "lon": 1.82222,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:L’ARMENTERA",
+      "lat": 42.17,
+      "lon": 3.07611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SOBIRANA",
+      "lat": 42.00333,
+      "lon": 1.78861,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA BARRACA",
+      "lat": 42.2225,
+      "lon": 2.38139,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SOBIRÓ",
+      "lat": 42.18222,
+      "lon": 1.45528,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA BISBAL D’EMPORDÁ",
+      "lat": 41.97722,
+      "lon": 3.04611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:SURIA",
+      "lat": 41.83361,
+      "lon": 1.74861,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA CAPELLA",
+      "lat": 42.41139,
+      "lon": 1.33583,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TERMENS",
+      "lat": 41.71722,
+      "lon": 0.76111,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA FULIOLA",
+      "lat": 41.71556,
+      "lon": 1.01667,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TERRASA",
+      "lat": 41.56639,
+      "lon": 2.02639,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA MOLINA DE LLETÓ",
+      "lat": 42.30972,
+      "lon": 1.56694,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TORRELLES DE FOIX",
+      "lat": 41.3825,
+      "lon": 1.56778,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA MORANA",
+      "lat": 41.7825,
+      "lon": 1.25611,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TORRES DE SEGRE",
+      "lat": 41.535,
+      "lon": 0.49778,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA PLANA DE RIU",
+      "lat": 42.29861,
+      "lon": 2.59944,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TÚNEL DE CASSERRES",
+      "lat": 42.00667,
+      "lon": 1.87556,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LA ROCA",
+      "lat": 41.58139,
+      "lon": 2.32722,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:TURÓ DE PRADAL",
+      "lat": 42.41056,
+      "lon": 1.50694,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LES BORGES BLANQUES",
+      "lat": 41.51972,
+      "lon": 0.86639,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VALLFEROSA",
+      "lat": 41.86111,
+      "lon": 1.45361,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:LES MACANES",
+      "lat": 42.22778,
+      "lon": 1.25667,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VENDRELL",
+      "lat": 41.2225,
+      "lon": 1.56306,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VERGES",
+      "lat": 42.06722,
+      "lon": 3.04472,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VIC",
+      "lat": 41.93222,
+      "lon": 2.25417,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VILAFRANCA DEL PENEDÉS",
+      "lat": 41.35611,
+      "lon": 1.66722,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VILA-SECA",
+      "lat": 41.86667,
+      "lon": 1.91694,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "BCN:VINAIXA",
+      "lat": 41.42833,
+      "lon": 0.97222,
+      "corridor": "ES-VFR",
+      "region": "BCN",
+      "source": "AIP ENR 6.2 Barcelona TMA"
+    },
+    {
+      "name": "GAL:E-1",
+      "lat": 43.23722,
+      "lon": -8.13972,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:W-1",
+      "lat": 43.35278,
+      "lon": -8.55306,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:E-2",
+      "lat": 42.92639,
+      "lon": -8.16333,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:S",
+      "lat": 42.7375,
+      "lon": -8.66056,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:W-2",
+      "lat": 42.91083,
+      "lon": -8.73556,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:E",
+      "lat": 42.17056,
+      "lon": -8.48778,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "GAL:W",
+      "lat": 42.26694,
+      "lon": -8.79639,
+      "corridor": "ES-VFR",
+      "region": "GAL",
+      "source": "AIP ENR 6.4 Galicia TMA"
+    },
+    {
+      "name": "SVQ:E1",
+      "lat": 37.86056,
+      "lon": -4.76806,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA",
+      "arrivalFor": {
+        "LEBA": {
+          "procedure": "ECHO",
+          "seq": 3
+        }
+      }
+    },
+    {
+      "name": "SVQ:E2: ALCOLEA",
+      "lat": 37.92944,
+      "lon": -4.66139,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA",
+      "arrivalFor": {
+        "LEBA": {
+          "procedure": "ECHO",
+          "seq": 2
+        }
+      }
+    },
+    {
+      "name": "SVQ:E3: VILLAFRANCA",
+      "lat": 37.94889,
+      "lon": -4.5675,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA",
+      "arrivalFor": {
+        "LEBA": {
+          "procedure": "ECHO",
+          "seq": 1
+        }
+      }
+    },
+    {
+      "name": "SVQ:S1",
+      "lat": 37.75833,
+      "lon": -4.82222,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:S2: MONTEMAYOR",
+      "lat": 37.64861,
+      "lon": -4.69889,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:W: CASTILLO DE ALMODÓVAR DEL R",
+      "lat": 37.8075,
+      "lon": -5.02389,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:N: COLOMERA",
+      "lat": 37.38056,
+      "lon": -3.70139,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:S: ALHAMA DE GRANADA",
+      "lat": 37.03333,
+      "lon": -4.02444,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:W: ILLORA",
+      "lat": 37.305,
+      "lon": -3.89556,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:E: JEDULA",
+      "lat": 36.72556,
+      "lon": -5.93083,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:W: MESAS DE ASTA",
+      "lat": 36.79028,
+      "lon": -6.17028,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:G: GUADALCACÍN",
+      "lat": 36.64444,
+      "lon": -5.63222,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:PE: RINCÓN DE LA VICTORIA",
+      "lat": 36.71778,
+      "lon": -4.28056,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:PS",
+      "lat": 36.47139,
+      "lon": -4.52889,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:PW: PUNTA CALABURRA",
+      "lat": 36.50694,
+      "lon": -4.63889,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:N: BRENES",
+      "lat": 37.55056,
+      "lon": -5.88583,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "SVQ:S: DOS HERMANAS",
+      "lat": 37.28333,
+      "lon": -5.91833,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7 Sevilla TMA"
+    },
+    {
+      "name": "MAD:N Boadilla del Monte",
+      "lat": 40.40444,
+      "lon": -3.87917,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:S",
+      "lat": 40.31389,
+      "lon": -3.84139,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:W Villaviciosa de Odón",
+      "lat": 40.35,
+      "lon": -3.93333,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:WG",
+      "lat": 40.29861,
+      "lon": -3.94167,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:SG",
+      "lat": 40.18889,
+      "lon": -3.66694,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:N",
+      "lat": 40.63694,
+      "lon": -3.43194,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:S",
+      "lat": 40.36944,
+      "lon": -3.30861,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P1 Urbanización el Bosque",
+      "lat": 40.41194,
+      "lon": -3.92556,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P2 La Chopera",
+      "lat": 40.50056,
+      "lon": -3.90083,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P3 Las Matas",
+      "lat": 40.54611,
+      "lon": -3.885,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P4 Urbanización Tres Cantos",
+      "lat": 40.63278,
+      "lon": -3.72361,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P5 Campo de vuelo El Molar",
+      "lat": 40.6725,
+      "lon": -3.61139,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "MAD:P6 AD Robledillo de Mohernando",
+      "lat": 40.86528,
+      "lon": -3.24778,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP ENR 6.5 Madrid TMA"
+    },
+    {
+      "name": "ALB:N VALDEGANGA",
+      "lat": 39.13611,
+      "lon": -1.67583,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:W LA GINETA",
+      "lat": 39.115,
+      "lon": -1.99667,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:S PETROLA",
+      "lat": 38.82667,
+      "lon": -1.55806,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:E CHINCHILLA",
+      "lat": 38.91778,
+      "lon": -1.72556,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:S1 POZO CAÑADA",
+      "lat": 38.80361,
+      "lon": -1.73278,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:W1 ALBACETE",
+      "lat": 39.00556,
+      "lon": -1.89722,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.2 Albacete"
+    },
+    {
+      "name": "ALB:DVOR/DME VAB",
+      "lat": 38.94722,
+      "lon": -1.85944,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.1 (VAB 115.80)"
+    },
+    {
+      "name": "ALB:TACAN TAB",
+      "lat": 38.94583,
+      "lon": -1.86333,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "AIP AD 2-LEAB VAC 1.1 (TAB CH117X)"
+    },
+    {
+      "name": "VAL:N-1 FOIOS",
+      "lat": 39.53722,
+      "lon": -0.35389,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:S-1 TORRENT",
+      "lat": 39.39361,
+      "lon": -0.47639,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:W-1 CALICANTO",
+      "lat": 39.45278,
+      "lon": -0.57056,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:N-2 VELODROMO LUIS PUIG",
+      "lat": 39.50083,
+      "lon": -0.42722,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:S-2 ALACUAS",
+      "lat": 39.45694,
+      "lon": -0.46083,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:W-2 DEPURADORA",
+      "lat": 39.46667,
+      "lon": -0.51694,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:N SAGUNTO",
+      "lat": 39.65611,
+      "lon": -0.21222,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:SE-1 FARO CULLERA",
+      "lat": 39.18667,
+      "lon": -0.21722,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.2 Valencia"
+    },
+    {
+      "name": "VAL:DVOR/DME VLC",
+      "lat": 39.48556,
+      "lon": -0.44944,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEVC VAC 1.1 (VLC 116.10)"
+    },
+    {
+      "name": "VAL:LEAL N CAMPO DE GOLF",
+      "lat": 38.31111,
+      "lon": -0.545,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.3 Alicante"
+    },
+    {
+      "name": "VAL:LEAL NE CABO HUERTAS",
+      "lat": 38.36194,
+      "lon": -0.40778,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.3 Alicante"
+    },
+    {
+      "name": "VAL:LEAL SW SALINAS",
+      "lat": 38.12583,
+      "lon": -0.67,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.3 Alicante"
+    },
+    {
+      "name": "VAL:LEAL S ESTANQUE",
+      "lat": 38.24167,
+      "lon": -0.57028,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.3 Alicante"
+    },
+    {
+      "name": "VAL:DVOR/DME ATE",
+      "lat": 38.28611,
+      "lon": -0.58667,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.1 (ATE 114.65)"
+    },
+    {
+      "name": "VAL:VOR/DME ALT",
+      "lat": 38.26833,
+      "lon": -0.57,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "AIP AD 2-LEAL VAC 2.1 (ALT 113.80)"
+    },
+    {
+      "name": "MUR:E ISLA GROSA",
+      "lat": 37.73444,
+      "lon": -0.71722,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.2 Murcia/San Javier"
+    },
+    {
+      "name": "MUR:N TORREVIEJA",
+      "lat": 37.98778,
+      "lon": -0.64639,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.2 Murcia/San Javier"
+    },
+    {
+      "name": "MUR:N-1 CABO ROIG",
+      "lat": 37.90972,
+      "lon": -0.71694,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.2 Murcia/San Javier"
+    },
+    {
+      "name": "MUR:S-1 CABO DE PALOS",
+      "lat": 37.61472,
+      "lon": -0.67528,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.2 Murcia/San Javier"
+    },
+    {
+      "name": "MUR:S ESCOMBRERAS",
+      "lat": 37.5425,
+      "lon": -0.93,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.2 Murcia/San Javier"
+    },
+    {
+      "name": "MUR:DVOR/DME MJR",
+      "lat": 37.80167,
+      "lon": -1.12083,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.1 (MJR 114.95)"
+    },
+    {
+      "name": "MUR:VOR/TAC VSJ",
+      "lat": 37.77972,
+      "lon": -0.81333,
+      "corridor": "ES-VFR",
+      "region": "MUR",
+      "source": "AIP AD 2-LELC VAC 1.1 (VSJ 113.30)"
+    },
+    {
+      "name": "ALM:E NIJAR",
+      "lat": 36.96083,
+      "lon": -2.20389,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:E-1 LAS CUEVAS DE LOS UBEDAS",
+      "lat": 36.94028,
+      "lon": -2.29306,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:S CABO DE GATA",
+      "lat": 36.72694,
+      "lon": -2.18417,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:SW FARO DE ROQUETAS",
+      "lat": 36.74639,
+      "lon": -2.60806,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:W LAS HORTICHUELAS",
+      "lat": 36.81028,
+      "lon": -2.59528,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:W-1 ALHAMA DE ALMERIA",
+      "lat": 36.95972,
+      "lon": -2.56278,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 Almería"
+    },
+    {
+      "name": "ALM:DVOR/DME AMR",
+      "lat": 36.83306,
+      "lon": -2.25944,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 (AMR 114.10)"
+    },
+    {
+      "name": "ALM:NDB AMN",
+      "lat": 36.84833,
+      "lon": -2.37833,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 (AMN 310)"
+    },
+    {
+      "name": "ALM:NDB AM",
+      "lat": 36.87583,
+      "lon": -2.24,
+      "corridor": "ES-VFR",
+      "region": "ALM",
+      "source": "AIP AD 2-LEAM VAC 1.1 (AM 284)"
+    },
+    {
+      "name": "SVQ:LEMG PE-2 PLAYA CALA DEL MORAL",
+      "lat": 36.71472,
+      "lon": -4.30306,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG PE-1 MÁLAGA",
+      "lat": 36.70222,
+      "lon": -4.39278,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG PW TORREMOLINOS",
+      "lat": 36.50694,
+      "lon": -4.63889,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG PW-1",
+      "lat": 36.59667,
+      "lon": -4.53167,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG PW-2",
+      "lat": 36.56167,
+      "lon": -4.57361,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG EA ESTACION TREN LOS PRADOS",
+      "lat": 36.69722,
+      "lon": -4.47778,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:LEMG WA CANTERA",
+      "lat": 36.65833,
+      "lon": -4.51417,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.4 Málaga"
+    },
+    {
+      "name": "SVQ:DVOR/DME MGA",
+      "lat": 36.81472,
+      "lon": -4.36972,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.1 (MGA 112.00)"
+    },
+    {
+      "name": "SVQ:DVOR/DME AGP",
+      "lat": 36.68444,
+      "lon": -4.48722,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP AD 2-LEMG VAC 1.1 (AGP 117.15)"
+    },
+    {
+      "name": "BDJ:N",
+      "lat": 39.00889,
+      "lon": -6.90472,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 Badajoz/Talavera La Real"
+    },
+    {
+      "name": "BDJ:E MONTIJO",
+      "lat": 38.90889,
+      "lon": -6.61806,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 Badajoz/Talavera La Real"
+    },
+    {
+      "name": "BDJ:S LA ALBUERA",
+      "lat": 38.71722,
+      "lon": -6.82306,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 Badajoz/Talavera La Real"
+    },
+    {
+      "name": "BDJ:W PRISION DE BADAJOZ",
+      "lat": 38.82889,
+      "lon": -7.00139,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 Badajoz/Talavera La Real"
+    },
+    {
+      "name": "BDJ:DVOR/DME BTA",
+      "lat": 38.88972,
+      "lon": -6.81583,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 (BTA 116.80)"
+    },
+    {
+      "name": "BDJ:TACAN TBC",
+      "lat": 38.89167,
+      "lon": -6.81861,
+      "corridor": "ES-VFR",
+      "region": "BDJ",
+      "source": "AIP AD 2-LEBZ VAC 1.1 (TBC CH25X)"
+    },
+    {
+      "name": "ZAZ:N ALAGON",
+      "lat": 41.76833,
+      "lon": -1.11611,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 Zaragoza"
+    },
+    {
+      "name": "ZAZ:E VILLAMAYOR DE GALLEGO",
+      "lat": 41.68833,
+      "lon": -0.77361,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 Zaragoza"
+    },
+    {
+      "name": "ZAZ:S LA MUELA",
+      "lat": 41.57389,
+      "lon": -1.11861,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 Zaragoza"
+    },
+    {
+      "name": "ZAZ:DVOR/DME ZAR",
+      "lat": 41.65722,
+      "lon": -1.03083,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 (ZAR 113.00)"
+    },
+    {
+      "name": "ZAZ:TACAN ZZA",
+      "lat": 41.81056,
+      "lon": -1.05861,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 (ZZA CH64Y)"
+    },
+    {
+      "name": "ZAZ:TACAN ZZZ",
+      "lat": 41.66917,
+      "lon": -1.0475,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 (ZZZ CH82Y)"
+    },
+    {
+      "name": "ZAZ:NDB ZRZ",
+      "lat": 41.73056,
+      "lon": -1.22667,
+      "corridor": "ES-VFR",
+      "region": "ZAZ",
+      "source": "AIP AD 2-LEZG VAC 1.1 (ZRZ 385)"
+    },
+    {
+      "name": "MAD:LETO N JARDIN DE SERRACINES",
+      "lat": 40.63694,
+      "lon": -3.43194,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:LETO S POZUELO DEL REY",
+      "lat": 40.36944,
+      "lon": -3.30861,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:LETO D DAGANZO",
+      "lat": 40.54972,
+      "lon": -3.46694,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:LETO M MESETA DE SAN JUAN",
+      "lat": 40.43889,
+      "lon": -3.38972,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:LETO CASAR DE TALAMANCA",
+      "lat": 40.70333,
+      "lon": -3.42639,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:LETO ORUSCO DE TAJUÑA",
+      "lat": 40.28472,
+      "lon": -3.21083,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.2 Madrid/Torrejón"
+    },
+    {
+      "name": "MAD:DVOR/DME BRA",
+      "lat": 40.33583,
+      "lon": -3.5575,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.1 (BRA 116.45)"
+    },
+    {
+      "name": "MAD:DVOR/DME PDT",
+      "lat": 40.25278,
+      "lon": -3.34778,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.1 (PDT 116.95)"
+    },
+    {
+      "name": "MAD:NDB SSY",
+      "lat": 40.37972,
+      "lon": -3.57528,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.1 (SSY 117.85)"
+    },
+    {
+      "name": "MAD:VOR/DME TLD",
+      "lat": 40.49222,
+      "lon": -3.47194,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.1 (TLD 115.10)"
+    },
+    {
+      "name": "MAD:VOR/DME TJN BRA",
+      "lat": 40.49889,
+      "lon": -3.47889,
+      "corridor": "ES-VFR",
+      "region": "MAD",
+      "source": "AIP AD 2-LETO VAC 3.1 (TJN 116.45 collocated)"
+    },
+    {
+      "name": "SVQ:ARSAS",
+      "lat": 36.85525,
+      "lon": -5.79067,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7-6 Sevilla TMA (Jerez IAF)"
+    },
+    {
+      "name": "SVQ:KUBAS",
+      "lat": 36.51456,
+      "lon": -5.89047,
+      "corridor": "ES-VFR",
+      "region": "SVQ",
+      "source": "AIP ENR 6.7-6 Sevilla TMA (Jerez IAF)"
+    },
+    {
+      "name": "VAL:DVOR/DME YES YESTE",
+      "lat": 38.264,
+      "lon": -3.444,
+      "corridor": "ES-VFR",
+      "region": "VAL",
+      "source": "ENAIRE navaid YES 115.20 (Yeste, en-route ALB-CDB corridor)"
+    },
+    {
+      "name": "ALB:BONETE",
+      "lat": 38.8772,
+      "lon": -1.349,
+      "corridor": "ES-VFR",
+      "region": "ALB",
+      "source": "landmark (Bonete town centre, Albacete) — pilot-validated route"
+    }
+  ],
+  "rules": [
+    {
+      "id": "ES-CLASS-A-NO-VFR",
+      "statement": "Class A airspace does not accept VFR flights.",
+      "source": "AIP ENR 1.2-1 Table SERA S5-1 note (**)",
+      "enforced": true,
+      "appliesTo": "routing"
+    },
+    {
+      "id": "ES-MAX-FL195",
+      "statement": "VFR flights shall not operate above FL195.",
+      "source": "AIP ENR 1.2-6",
+      "enforced": false,
+      "appliesTo": "ceiling-input-validation"
+    },
+    {
+      "id": "ES-MIN-ALT-POPULATED",
+      "statement": "Over populated areas: ≥1000 ft above highest obstacle within 600 m radius.",
+      "source": "AIP ENR 1.2-6",
+      "enforced": true,
+      "appliesTo": "pilot-msa-default"
+    },
+    {
+      "id": "ES-CTR-MADRID-NO-CIVIL-VFR",
+      "statement": "CTR MADRID: civil VFR prohibited — only Spanish military VFR to/from MoD facilities.",
+      "source": "AIP ENR 6.5-10",
+      "enforced": false,
+      "appliesTo": "hard-avoid-by-name",
+      "hardAvoid": {
+        "kinds": [
+          "CTR"
+        ],
+        "nameContains": [
+          "MADRID"
+        ]
+      }
+    }
+  ],
+  "validatedRoutes": [
+    {
+      "dep": "LEMU",
+      "dest": "LEBA",
+      "via": [
+        "ALB:BONETE",
+        "VAL:DVOR/DME YES YESTE",
+        "SVQ:E3: VILLAFRANCA",
+        "SVQ:E2: ALCOLEA",
+        "SVQ:E1"
+      ],
+      "altsFt": [
+        5000,
+        5100,
+        7300,
+        3700,
+        2500,
+        2600
+      ],
+      "source": "pilot SkyDemon 2026-05-12",
+      "note": "VFR arrival from N via ECHO procedure. Climb to 7300 ft over Sierra de Cazorla, then descend through Echo 3->2->1 gates."
+    },
+    {
+      "dep": "LEMU",
+      "dest": "LESL",
+      "via": [
+        {
+          "lat": 38.3894,
+          "lon": -0.1
+        },
+        {
+          "lat": 39.0956,
+          "lon": 0.6264
+        },
+        {
+          "lat": 40.0119,
+          "lon": 3.17
+        },
+        {
+          "lat": 39.5719,
+          "lon": 4.2661
+        },
+        {
+          "name": "Sierra (LEMH)",
+          "lat": 39.6989,
+          "lon": 4.3653
+        },
+        {
+          "name": "Sierra 1 (LEMH)",
+          "lat": 39.8008,
+          "lon": 4.2917
+        },
+        {
+          "name": "Echo 1 (LEMH)",
+          "lat": 39.8751,
+          "lon": 4.3159
+        }
+      ],
+      "altsFt": [
+        3500,
+        3500,
+        3450,
+        3450,
+        3450,
+        2500,
+        1500,
+        1500
+      ],
+      "source": "PLOG SkyDemon 2026-05-12 Muchamiel-SantLuis",
+      "note": "VFR Med crossing route LEMU→LESL via north Mallorca corridor. Leg 3 (N390544→N400043) crosses Sierra de Tramuntana; MSA 5700 ft, planned level 3450 below MSA — corridor flown visually under terrain. Arrives Menorca via Sierra/Sierra1/Echo1 procedure for LESL."
+    }
+  ]
+}

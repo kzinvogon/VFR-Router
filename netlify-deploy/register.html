@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/_styles.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">VFR ROUTER ▸ REGISTER</span>
+  </header>
+
+  <h1>Create an account</h1>
+  <p class="lead">An account lets you save computed routes, set a default departure airport, and contribute pilot logs to the shared corpus.</p>
+
+  <div class="panel">
+    <div class="panel-title">Registration</div>
+    <form id="form">
+      <label for="email">Email *</label>
+      <input id="email" type="email" required autocomplete="email">
+
+      <div class="row">
+        <div>
+          <label for="firstName">First name *</label>
+          <input id="firstName" type="text" required autocomplete="given-name">
+        </div>
+        <div>
+          <label for="lastName">Last name *</label>
+          <input id="lastName" type="text" required autocomplete="family-name">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="callSign">Call sign (optional)</label>
+          <input id="callSign" type="text" placeholder="e.g. EC-XYZ">
+        </div>
+        <div>
+          <label for="aircraftType">Aircraft type (optional)</label>
+          <input id="aircraftType" type="text" placeholder="e.g. SR22, SEP, C172">
+        </div>
+      </div>
+
+      <button class="btn" type="submit" id="submitBtn">▸ Register</button>
+    </form>
+    <div class="status" id="status"></div>
+  </div>
+
+  <p class="muted" style="text-align:center;font-size:13px">Already have an account? <a href="/login.html" style="color:var(--accent)">Sign in</a></p>
+</div>
+
+<script src="/_nav.js"></script>
+<script>
+renderNav('register');
+
+const form = document.getElementById('form');
+const status = document.getElementById('status');
+const btn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  status.className = 'status show info';
+  status.textContent = 'Registering…';
+  const payload = {
+    email: document.getElementById('email').value.trim(),
+    firstName: document.getElementById('firstName').value.trim(),
+    lastName: document.getElementById('lastName').value.trim(),
+    callSign: document.getElementById('callSign').value.trim(),
+    aircraftType: document.getElementById('aircraftType').value.trim(),
+  };
+  try {
+    const resp = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      status.className = 'status show err';
+      status.textContent = `✗ ${data.error || resp.status}`;
+      btn.disabled = false;
+      return;
+    }
+    status.className = 'status show ok';
+    status.textContent = `✓ Registered ${data.user.email}. Redirecting to sign-in…`;
+    setTimeout(() => {
+      location.href = `/login.html?email=${encodeURIComponent(payload.email)}`;
+    }, 900);
+  } catch (err) {
+    status.className = 'status show err';
+    status.textContent = `✗ ${err.message}`;
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFR Router — My Plans</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/_styles.css">
+<style>
+  .plan { border:1px solid var(--border); border-radius:3px; padding:14px; margin-bottom:10px; }
+  .plan .head {
+    display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:10px;
+  }
+  .plan .head .route { font-family:var(--font-mono); font-size:15px; color:var(--accent); }
+  .plan .meta { color:var(--muted); font-size:11px; margin-top:6px; font-family:var(--font-mono); }
+  .plan details { margin-top:10px; }
+  .plan summary { cursor:pointer; color:var(--muted); font-size:11px; font-family:var(--font-mono); }
+  .plan pre {
+    background:rgba(0,0,0,0.25); padding:12px; border-radius:3px; margin-top:10px;
+    font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; max-height:300px; overflow:auto;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">VFR ROUTER ▸ MY PLANS</span>
+  </header>
+
+  <h1>Saved routes</h1>
+  <p class="lead">Routes you've saved from the router. Click <strong>Recall</strong> to open one back in the planner for review or modification.</p>
+
+  <div class="panel">
+    <div class="panel-title">Search</div>
+    <input type="text" id="searchInput" placeholder="Filter by ICAO, label, source…">
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><span id="title">Loading…</span></div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script src="/_nav.js"></script>
+<script>
+let allPlans = [];
+
+(async () => {
+  const user = await renderNav('plans');
+  if (!user) { location.href = '/login.html'; return; }
+  await loadPlans();
+})();
+
+async function loadPlans() {
+  document.getElementById('title').textContent = 'Loading…';
+  const resp = await fetch('/api/plans?scope=mine');
+  if (!resp.ok) {
+    document.getElementById('title').textContent = `Failed to load: HTTP ${resp.status}`;
+    return;
+  }
+  const data = await resp.json();
+  allPlans = data.plans || [];
+  render();
+}
+
+function filtered() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  if (!q) return allPlans;
+  return allPlans.filter(p =>
+    p.dep.toLowerCase().includes(q) ||
+    p.dest.toLowerCase().includes(q) ||
+    (p.label || '').toLowerCase().includes(q) ||
+    (p.source || '').toLowerCase().includes(q)
+  );
+}
+
+function render() {
+  const list = document.getElementById('list');
+  const f = filtered();
+  document.getElementById('title').textContent =
+    allPlans.length === f.length
+      ? `${allPlans.length} saved plan${allPlans.length === 1 ? '' : 's'}`
+      : `${f.length} of ${allPlans.length} match`;
+  if (!f.length) {
+    list.innerHTML = '<div class="empty">No saved plans match. Compute a route on the router and press "Save plan" to add one.</div>';
+    return;
+  }
+  list.innerHTML = f.map(p => {
+    const created = p.createdAt ? new Date(p.createdAt).toLocaleString() : '';
+    const altList = (p.legs || []).map(l => l.pick?.level).filter(Boolean).join(' / ');
+    const waypoints = (p.path || []).map(w => w.name || `${w.lat?.toFixed(3)},${w.lon?.toFixed(3)}`).join(' → ');
+    return `
+      <div class="plan">
+        <div class="head">
+          <div>
+            <span class="route">${p.dep} → ${p.dest}</span>
+            <span class="badge">${p.source || 'router'}</span>
+            ${p.label !== `${p.dep} → ${p.dest}` ? `<span class="muted" style="font-size:12px"> — ${p.label}</span>` : ''}
+          </div>
+          <div>
+            <button class="btn btn-secondary" style="padding:6px 12px;font-size:11px" onclick="recall('${p.id}')">↺ Recall</button>
+            <button class="btn btn-danger" style="padding:6px 12px;font-size:11px;margin-left:6px" onclick="del('${p.id}')">Delete</button>
+          </div>
+        </div>
+        <div class="meta">
+          ${(p.path || []).length} waypoints · ${p.totalNm ? Math.round(p.totalNm) + ' nm · ' : ''}
+          ${p.tasKt ? p.tasKt + ' kt · ' : ''}${altList ? 'levels: ' + altList + ' ft · ' : ''}
+          ${created}
+        </div>
+        <details>
+          <summary>Show waypoints + warnings</summary>
+          <pre>${escapeHtml(waypoints)}
+
+Warnings: ${(p.warnings || []).length}
+${(p.warnings || []).map(w => `  [${w.severity}] ${w.tag}: ${w.msg}`).join('\n')}</pre>
+        </details>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+document.getElementById('searchInput').addEventListener('input', render);
+
+function recall(id) {
+  // Pass plan id back to the router; the router checks ?recall=ID on load.
+  location.href = `/?recall=${encodeURIComponent(id)}`;
+}
+
+async function del(id) {
+  const plan = allPlans.find(p => p.id === id);
+  if (!plan) return;
+  if (!confirm(`Delete saved plan ${plan.dep} → ${plan.dest}?`)) return;
+  const resp = await fetch(`/api/plans?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (resp.ok) {
+    allPlans = allPlans.filter(p => p.id !== id);
+    render();
+  } else {
+    alert(`Delete failed: HTTP ${resp.status}`);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+.netlify/
+.env
+.env.*
+.claude/
+VFR Maps*/
+skydemo imports/
