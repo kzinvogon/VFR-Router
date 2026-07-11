@@ -500,6 +500,8 @@
         <span>Avoid restricted / prohibited areas</span></label>
       <label class="opt-row"><input type="checkbox" id="optAvoidMilitary" checked>
         <span>Avoid military zones (TSA/TRA/MATZ)</span></label>
+      <label class="opt-row"><input type="checkbox" id="optCorridorAwareCtr">
+        <span>Route CTR transits via published VFR corridors (experimental)</span></label>
       <label class="opt-row"><input type="checkbox" id="optSnapFixes" checked>
         <span>Snap turn points to named fixes</span></label>
     </div>
@@ -789,6 +791,18 @@ function pointInPolygon(pt, poly) {
     if (pt.lon < lonAtCross) inside = !inside;
   }
   return inside;
+}
+
+// Coarse polygon-polygon overlap test: true if any vertex of either polygon
+// falls inside the other. Same sampling-based approximation this file already
+// uses everywhere (segmentIntersectsPolygon's 20-step sampling, per-leg MSA
+// sampling) rather than an exact polygon-clip algorithm — good enough to
+// decide "is there real published VFR-sector coverage inside this CTR",
+// which is the only thing this is used for.
+function polygonsOverlap(polyA, polyB) {
+  for (const [lat, lon] of polyA) if (pointInPolygon({ lat, lon }, polyB)) return true;
+  for (const [lat, lon] of polyB) if (pointInPolygon({ lat, lon }, polyA)) return true;
+  return false;
 }
 
 function segmentIntersectsPolygon(a, b, poly) {
@@ -1844,6 +1858,7 @@ async function computeRoute() {
     avoidDanger:         document.getElementById('optAvoidDanger').checked,
     avoidRestricted:     document.getElementById('optAvoidRestricted').checked,
     avoidMilitary:       document.getElementById('optAvoidMilitary').checked,
+    corridorAwareCtr:    document.getElementById('optCorridorAwareCtr').checked,
     snapFixes:           document.getElementById('optSnapFixes').checked,
   };
 
@@ -1983,6 +1998,38 @@ async function computeRoute() {
       .filter(i => i.poly);
     log(`${vfrSectorPolys.length} VFR sector corridor${vfrSectorPolys.length===1?'':'s'} available`);
 
+    // Experimental (opt-in, unchecked by default — see optCorridorAwareCtr):
+    // a CTR only becomes a routing-relevant obstacle if there is concrete,
+    // live evidence a real published VFR corridor exists through it — at
+    // least one real VFR_SECTOR polygon (not a KB reporting point, actual
+    // OpenAIP data) geometrically overlaps it. Deliberately NOT "every CTR"
+    // or "any CTR near a KB corridor tag" — those would risk regressing to
+    // the "detour around every Class D" behavior this project already ruled
+    // out once (see project routing-philosophy memory). Registered obstacles
+    // go through the exact same isClear()/crossingCoveredBySectors machinery
+    // already used for KB hard-avoid CTRs — no changes needed there. These
+    // are NOT added via shouldAvoid()/AVOID_TYPE: CTR transit stays a purely
+    // lateral-routing concern, never a pickLegAltitude blocker.
+    const CTR_CORRIDOR_TYPES = new Set(['CTR']);
+    const corridorRequiredObstacles = [];
+    if (opts.corridorAwareCtr) {
+      for (const item of bandItems) {
+        const typ = decodeAirspaceType(item.type);
+        if (!CTR_CORRIDOR_TYPES.has(typ)) continue;
+        const poly = extractPolygon(item);
+        if (!poly) continue;
+        const covered = vfrSectorPolys.some(vs => polygonsOverlap(poly, vs.poly));
+        log(`CTR ${item.name || 'unnamed'}: ${covered ? 'real VFR-sector overlap found — registering as corridor-required' : 'no VFR-sector overlap — left as ordinary transit airspace'}`);
+        if (!covered) continue;
+        corridorRequiredObstacles.push({
+          ...item, poly,
+          _obsType: typ,
+          _cls: decodeIcaoClass(item.icaoClass),
+        });
+      }
+      log(`${corridorRequiredObstacles.length} CTR${corridorRequiredObstacles.length===1?'':'s'} registered as corridor-required (experimental)`, corridorRequiredObstacles.length ? 'warn' : 'ok');
+    }
+
     // Overhead-base ceilings: TMA/CTA sectors whose elevated floor caps the
     // legal no-clearance VFR altitude wherever the route passes beneath them.
     const ceilCands = ceilingCandidates(bandItems, altCeilingFt);
@@ -2060,7 +2107,7 @@ async function computeRoute() {
     // airspace is promoted to a lateral obstacle and A* re-runs, forcing a
     // lateral deviation.
     const itemKey = it => `${it.name||'?'}|${it.type}|${it.icaoClass}`;
-    const hardObstacles = [...lateralObstacles];
+    const hardObstacles = [...lateralObstacles, ...corridorRequiredObstacles];
     const hardKeys = new Set(hardObstacles.map(itemKey));
 
     // Corpus-first: if (dep, dest) matches a pilot-validated route in the KB,
