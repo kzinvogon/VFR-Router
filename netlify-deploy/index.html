@@ -776,6 +776,18 @@ function offsetPoint(p, bearingDeg, distNm) {
   return { lat: toDeg(lat2), lon: toDeg(lon2) };
 }
 
+// N-sided regular polygon approximating a circle of radiusNm around center,
+// in the same [lat, lon]-per-vertex format extractPolygon() produces — plugs
+// straight into segmentIntersectsPolygon/pointInPolygon with no new geometry.
+function circlePolygon(center, radiusNm, sides = 12) {
+  const poly = [];
+  for (let i = 0; i < sides; i++) {
+    const p = offsetPoint(center, (360 / sides) * i, radiusNm);
+    poly.push([p.lat, p.lon]);
+  }
+  return poly;
+}
+
 // Standard ray-casting point-in-polygon. poly is stored as [lat, lon] per vertex
 // (see extractPolygon). Ray is cast horizontally at constant latitude = pt.lat.
 function pointInPolygon(pt, poly) {
@@ -1318,11 +1330,21 @@ function buildPilotLog(path, legs, tasKnots, preferredFt) {
       notes.push(`Leg ${i+1}: ${fmtLevel(leg.pick.level)} (preferred ${fmtLevel(preferredFt)} blocked)`);
     }
     // Summarise airspaces this leg laterally crosses (must-avoid only), excluding
-    // those already mentioned as busts at the chosen altitude.
+    // those already mentioned as busts at the chosen altitude. SUA_CLIMB_ONLY_TYPE
+    // items (Restricted/Danger/Protected/TSA/TRA/MATZ/Alert/Warning/ATZ) get a
+    // specific "cleared by climbing" note since the pilot should know a margin
+    // was applied above the published ceiling; everything else keeps the
+    // generic "cleared by altitude" summary.
     const bustNameSet = new Set(leg.pick.busts.map(b => b.item.name));
+    const clearedByClimb = leg.lateral
+      .filter(c => c.mustAvoid && !bustNameSet.has(c.item.name) && SUA_CLIMB_ONLY_TYPE.has(decodeAirspaceType(c.item.type)));
     const otherCrossed = leg.lateral
-      .filter(c => c.mustAvoid && !bustNameSet.has(c.item.name))
+      .filter(c => c.mustAvoid && !bustNameSet.has(c.item.name) && !SUA_CLIMB_ONLY_TYPE.has(decodeAirspaceType(c.item.type)))
       .map(c => c.item.name || 'unnamed');
+    for (const c of clearedByClimb) {
+      const range = `${fmtAlt(c.item.lowerLimit)}–${fmtAlt(c.item.upperLimit)}`;
+      notes.push(`Leg ${i+1}: clears ${c.item.name || decodeAirspaceType(c.item.type)} (${range}) by climbing to ${fmtLevel(leg.pick.level)} (${VERTICAL_CLEARANCE_MARGIN_FT} ft margin)`);
+    }
     if (otherCrossed.length) {
       notes.push(`Leg ${i+1}: also crosses (cleared by altitude): ${otherCrossed.slice(0,5).join(', ')}${otherCrossed.length>5?`, +${otherCrossed.length-5} more`:''}`);
     }
@@ -1594,11 +1616,27 @@ function isHemispheric(levelFt, courseDeg) {
   return east ? odd : !odd;
 }
 
+// Special-use airspace (Restricted/Danger/Protected/TSA/TRA/MATZ/Alert/Warning/
+// ATZ) is "climb over only" — real-world SUA is near-universally SFC-based, and
+// duck-under isn't real VFR practice (and risks a later terrain-MSA invalidation
+// trap: a duck-under pick could be invalidated by the terrain-aware MSA repick
+// that runs after the escalation loop, with no path back to a lateral reroute
+// at that point). So these types report lower=0 (duck-under never "clears")
+// and a margin-padded upper (climbing above the published ceiling by less than
+// the margin doesn't count as clear either). PROHIBITED stays a normal,
+// unconditionally-lateral obstacle — see ALWAYS_LATERAL_TYPE below.
+const SUA_CLIMB_ONLY_TYPE = new Set([
+  'RESTRICTED', 'DANGER', 'PROTECTED', 'TSA', 'TRA', 'MATZ', 'ALERT', 'WARNING', 'ATZ'
+]);
+const VERTICAL_CLEARANCE_MARGIN_FT = 500;
+
 function airspaceLimits(item) {
-  return {
-    lower: parseAltFt(item.lowerLimit ?? item.floor, 'lower'),
-    upper: parseAltFt(item.upperLimit ?? item.ceiling, 'upper'),
-  };
+  const lower = parseAltFt(item.lowerLimit ?? item.floor, 'lower');
+  const upper = parseAltFt(item.upperLimit ?? item.ceiling, 'upper');
+  if (SUA_CLIMB_ONLY_TYPE.has(decodeAirspaceType(item.type))) {
+    return { lower: 0, upper: upper + VERTICAL_CLEARANCE_MARGIN_FT };
+  }
+  return { lower, upper };
 }
 
 // For a leg a→b, return info on airspaces crossed laterally (no alt filter).
@@ -1901,16 +1939,20 @@ async function computeRoute() {
     // Only airspaces that are genuinely not transitable under VFR are hard-avoid.
     // Class A: VFR forbidden full stop (AIP ENR 1.2 note). Class B: impractical
     // clearance for GA. Prohibited: always. Danger/Restricted/Military: user
-    // option-controlled. CTR-type items can be promoted via KB hard-avoid rules
-    // (e.g. CTR MADRID: civil VFR prohibited per AIP ENR 6.5-10). Everything
-    // else — Class C/D/E TMA/CTR/CTA/MCTR — is TRANSIT airspace: the pilot
-    // requests clearance en route. The router annotates these crossings in
-    // the pilot log; it does not detour around them. Detouring around every
-    // Class D TMA produces 500+ nm monstrosities for routes that real pilots
-    // fly direct with ATC on 120.xxx.
+    // option-controlled but, when on, vertically clearable — see
+    // SUA_CLIMB_ONLY_TYPE / isFullSandwich below, not unconditionally lateral.
+    // ATZ: always considered (no UI toggle — aerodrome traffic-pattern safety
+    // isn't opt-in), same climb-only treatment. CTR-type items can be promoted
+    // via KB hard-avoid rules (e.g. CTR MADRID: civil VFR prohibited per AIP
+    // ENR 6.5-10). Everything else — Class C/D/E TMA/CTR/CTA/MCTR — is TRANSIT
+    // airspace: the pilot requests clearance en route. The router annotates
+    // these crossings in the pilot log; it does not detour around them.
+    // Detouring around every Class D TMA produces 500+ nm monstrosities for
+    // routes that real pilots fly direct with ATC on 120.xxx.
     const AVOID_ICAO_CLASS = new Set(['A','B']);
     const AVOID_TYPE = new Set();
     AVOID_TYPE.add('PROHIBITED');
+    AVOID_TYPE.add('ATZ');
     if (opts.avoidDanger)     AVOID_TYPE.add('DANGER');
     if (opts.avoidRestricted) { AVOID_TYPE.add('RESTRICTED'); AVOID_TYPE.add('PROTECTED'); }
     if (opts.avoidMilitary)   { AVOID_TYPE.add('TSA'); AVOID_TYPE.add('TRA'); AVOID_TYPE.add('MATZ'); AVOID_TYPE.add('ALERT'); AVOID_TYPE.add('WARNING'); }
@@ -1940,21 +1982,26 @@ async function computeRoute() {
 
     // Lateral obstacles: airspaces that cannot be cleared by altitude within
     // the pilot's envelope. Their vertical band fully sandwiches [floor, ceiling],
-    // so no altitude in the envelope gets you over or under them.
+    // so no altitude in the envelope gets you over or under them. For
+    // SUA_CLIMB_ONLY_TYPE items, airspaceLimits() already reports lower=0
+    // (duck-under never counts) and a margin-padded upper — so this check
+    // naturally reduces to "can't climb clear of it within the envelope",
+    // which is exactly the pre-registration condition we want for those types.
     const isFullSandwich = item => {
       const { lower, upper } = airspaceLimits(item);
       return lower <= altFloorFt && upper >= altCeilingFt;
     };
-    // Special-use airspace is unconditionally lateral. The "alt-clearable"
-    // heuristic only considers the user's static envelope, not per-leg terrain
-    // MSA. In mountainous terrain (Sierra de Cazorla, Pyrenees) the effective
-    // floor often pushes above the airspace's lower limit, making "fly under"
-    // physically impossible. Treating RESTRICTED / DANGER / PROHIBITED / TSA /
-    // TRA / MATZ as always-lateral matches what a real pilot does — detour.
-    const ALWAYS_LATERAL_TYPE = new Set([
-      'RESTRICTED', 'DANGER', 'PROHIBITED', 'PROTECTED',
-      'TSA', 'TRA', 'MATZ', 'ALERT', 'WARNING'
-    ]);
+    // PROHIBITED is unconditionally lateral regardless of altitude — always
+    // avoided by name/definition, not a vertical-clearance judgment call.
+    // Restricted/Danger/Protected/TSA/TRA/MATZ/Alert/Warning/ATZ (SUA_CLIMB_ONLY_TYPE)
+    // are NOT unconditionally lateral: they're only pre-registered here if
+    // isFullSandwich() says climbing clear isn't possible within the pilot's
+    // static envelope (e.g. mountainous terrain, or a ceiling above the
+    // pilot's max altitude). Otherwise A* draws the direct path and
+    // pickLegAltitude()/the escalation loop (which already exist, unmodified)
+    // handle clearing it by altitude per leg, falling back to a lateral
+    // reroute if a specific leg genuinely can't clear it.
+    const ALWAYS_LATERAL_TYPE = new Set(['PROHIBITED']);
     const isAlwaysLateral = item => {
       const t = decodeAirspaceType(item.type);
       return ALWAYS_LATERAL_TYPE.has(t);
@@ -2055,12 +2102,40 @@ async function computeRoute() {
 
     setStatus('loading', 'Computing route…');
 
+    // Never route a leg directly over another airport's runway/ARP. A straight
+    // A* edge has no notion of "airport" otherwise — airportNodes are plain
+    // turn points with no exclusion buffer (fetchAirportsInBbox). This is
+    // altitude-independent by design (a low-level straight cut across another
+    // field's runway/circuit is a structural routing problem, not something
+    // the SUA climb-over logic above is the right tool for) and deliberately
+    // narrow in scope — it does not touch CTR-transit philosophy; CTR/TMA/
+    // CTA/MCTR remain non-hard-avoid.
+    //
+    // Buffer every airport in airportNodes, not just ones near the raw
+    // dep→dest line: A* routes via intermediate named/corridor fixes (e.g. a
+    // Valencia-area reporting point), so an edge that threads over a
+    // third airport can be tens of nm off the direct line — the original
+    // LEMU→LERS repro had LEVC ~27 nm cross-track from the straight line,
+    // which a tighter re-filter here would have missed entirely. airportNodes
+    // is already bounded to the ±200 nm CORRIDOR_NM used by fetchAirportsInBbox,
+    // so this doesn't unboundedly grow the A* graph.
+    const AIRPORT_OVERFLIGHT_BUFFER_NM = 1.5;
+    const airportBufferObstacles = airportNodes
+      .filter(ap => ap.name !== depICAO && ap.name !== destICAO)
+      .map(ap => ({
+        poly: circlePolygon(ap, AIRPORT_OVERFLIGHT_BUFFER_NM),
+        _obsType: 'AIRPORT_BUFFER',
+        _cls: null,
+        name: `${ap.name} overflight buffer`,
+      }));
+    log(`${airportBufferObstacles.length} airport-overflight buffer${airportBufferObstacles.length===1?'':'s'} added (${AIRPORT_OVERFLIGHT_BUFFER_NM} nm)`, 'ok');
+
     // Lateral obstacle set can grow during the plan-refine loop: if per-leg
     // altitude selection says "no legal altitude clears this", the offending
     // airspace is promoted to a lateral obstacle and A* re-runs, forcing a
     // lateral deviation.
     const itemKey = it => `${it.name||'?'}|${it.type}|${it.icaoClass}`;
-    const hardObstacles = [...lateralObstacles];
+    const hardObstacles = [...lateralObstacles, ...airportBufferObstacles];
     const hardKeys = new Set(hardObstacles.map(itemKey));
 
     // Corpus-first: if (dep, dest) matches a pilot-validated route in the KB,
