@@ -2004,6 +2004,18 @@ async function computeRoute() {
     // at VFR altitudes the way a 5,500ft Danger Area does). Not added via
     // shouldAvoid()/AVOID_TYPE — CTR transit still isn't an altitude/
     // pickLegAltitude concern, purely a lateral-routing one.
+    //
+    // Registration is deliberately narrow: only a CTR the DIRECT dep->dest
+    // line actually crosses, not every CTR sharing the pilot's altitude
+    // band. A live test against LEMU->LERS (which shares its wide envelope
+    // with ~25 CTRs from Alicante to Zaragoza) showed registering all of
+    // them overwhelms A* — it gave up ("could not find clear path") and
+    // produced a WORSE route (an unresolved Danger Area bust that wasn't
+    // there before) than doing nothing. That's the same "detour around
+    // every CTR" failure mode the project already ruled out once, just
+    // reintroduced behind this opt-in toggle instead of being unconditional.
+    // Scoping to only the CTR(s) actually on the direct line keeps this to
+    // a single, tractable obstacle in the common case.
     const CTR_TYPES = new Set(['CTR']);
     const ctrInteriorObstacles = [];
     if (opts.avoidCtrInterior) {
@@ -2012,13 +2024,14 @@ async function computeRoute() {
         if (!CTR_TYPES.has(typ)) continue;
         const poly = extractPolygon(item);
         if (!poly) continue;
+        if (!segmentIntersectsPolygon(dep, dest, poly)) continue;
         ctrInteriorObstacles.push({
           ...item, poly,
           _obsType: typ,
           _cls: decodeIcaoClass(item.icaoClass),
         });
       }
-      log(`${ctrInteriorObstacles.length} CTR${ctrInteriorObstacles.length===1?'':'s'} in envelope registered for detour-around (experimental)`, ctrInteriorObstacles.length ? 'warn' : 'ok');
+      log(`${ctrInteriorObstacles.length} CTR${ctrInteriorObstacles.length===1?'':'s'} on the direct dep→dest line registered for detour-around (experimental)`, ctrInteriorObstacles.length ? 'warn' : 'ok');
     }
 
     // Overhead-base ceilings: TMA/CTA sectors whose elevated floor caps the
