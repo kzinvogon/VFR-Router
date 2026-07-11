@@ -501,7 +501,7 @@
       <label class="opt-row"><input type="checkbox" id="optAvoidMilitary" checked>
         <span>Avoid military zones (TSA/TRA/MATZ)</span></label>
       <label class="opt-row"><input type="checkbox" id="optAvoidCtrInterior">
-        <span>Detour around CTRs instead of cutting through them (experimental)</span></label>
+        <span>Thread CTR transits via published VFR corridor points (experimental)</span></label>
       <label class="opt-row"><input type="checkbox" id="optSnapFixes" checked>
         <span>Snap turn points to named fixes</span></label>
     </div>
@@ -1132,10 +1132,28 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
 
   // A node-incident corridor edge (either endpoint tagged with a corridor ID)
   // permits transit through TMA/CTA — those are the classes a published VFR
-  // route actually passes through. CTRs and prohibited/restricted still block
-  // even on a corridor edge: published routes go AROUND CTRs, not through.
+  // route actually passes through. Prohibited/restricted still always block.
+  //
+  // CTR gets a stricter version, in two parts — live-tested, both parts
+  // needed:
+  //   1. Both endpoints corridor-tagged: a genuine hop between two published
+  //      VRPs. One corridor point at the end of an arbitrarily long direct
+  //      leg doesn't mean the leg follows the published route — a leg from a
+  //      departure 84 nm away straight into a single Valencia VRP still cuts
+  //      through the CTR's interior, real bug reproduced live.
+  //   2. One endpoint corridor-tagged AND the leg is short (<=
+  //      CTR_ENTRY_LEG_MAX_NM): the departure/destination joining leg to/from
+  //      the nearest VRP. An airport can never itself be corridor-tagged, so
+  //      a strict both-endpoints-only rule made it impossible to ever leave a
+  //      departure near a corridor-required CTR at all — A* failed outright,
+  //      live-tested. Short entry/exit legs are real VFR practice (fly
+  //      airport -> nearest published VRP, then hop VRP to VRP); an 84 nm
+  //      "leg" is not that, hence the distance cap.
+  const CTR_ENTRY_LEG_MAX_NM = 15;
   function isClear(a, b) {
     const corridorEdge = !!(a.corridor || b.corridor);
+    const ctrCorridorEdge = !!(a.corridor && b.corridor) ||
+      (!!(a.corridor || b.corridor) && haversine(a, b) <= CTR_ENTRY_LEG_MAX_NM);
     for (const obs of obstacles) {
       if (!obs.poly) continue;
       if (!segmentIntersectsPolygon(a, b, obs.poly)) continue;
@@ -1145,6 +1163,7 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
       // case). Class A is never corridor-exemptable — VFR is flat-out
       // prohibited inside Class A, no corridor or clearance changes that.
       if (corridorEdge && (typ === 'TMA' || typ === 'CTA') && cls !== 'A') continue;
+      if (ctrCorridorEdge && typ === 'CTR' && cls !== 'A') continue;
       const corridorable = typ === 'TMA' || typ === 'CTR' || typ === 'CTA' || typ === 'MCTR';
       if (!corridorable) return false;
       if (!crossingCoveredBySectors(a, b, obs.poly)) return false;
@@ -1986,52 +2005,66 @@ async function computeRoute() {
       .filter(i => i.poly);
     log(`${vfrSectorPolys.length} VFR sector corridor${vfrSectorPolys.length===1?'':'s'} available`);
 
-    // Experimental stopgap (opt-in, unchecked by default — see
-    // optAvoidCtrInterior). Originally this was meant to thread a CTR
-    // crossing via real published VFR-corridor geometry (OpenAIP
-    // VFR_SECTOR polygons), like the KB hard-avoid CTR case already does
-    // via isClear()/crossingCoveredBySectors. Verified against live OpenAIP
-    // data: mainland Spain has essentially zero VFR_SECTOR coverage (2
-    // polygons in the whole LEMU-LERS corridor's 30 real CTRs, both near
-    // Mallorca) — so that approach is a no-op in practice, not a real fix.
-    // Until a data source that actually has this geometry is integrated
-    // (tracked separately — ENAIRE AIXM 5.1 is the real fix, bigger effort),
-    // this is a blunter fallback: when enabled, a CTR the leg's straight
-    // path would actually cut through becomes a full lateral obstacle,
-    // using its real published polygon — same mechanism already used for
-    // Restricted/Danger areas, just without the vertical climb-over option
-    // Fix 1 gives those (a CTR has no useful "climb above it" escape valve
-    // at VFR altitudes the way a 5,500ft Danger Area does). Not added via
-    // shouldAvoid()/AVOID_TYPE — CTR transit still isn't an altitude/
-    // pickLegAltitude concern, purely a lateral-routing one.
+    // Experimental (opt-in, unchecked by default — see optAvoidCtrInterior).
+    // Third iteration of this mechanism — the first two failed live testing:
+    //   1. Gating on live OpenAIP VFR_SECTOR polygon coverage: a no-op —
+    //      mainland Spain has ~0 such polygons (confirmed against real
+    //      production data: 2 in the whole LEMU-LERS corridor's 30 CTRs,
+    //      both near Mallorca).
+    //   2. Registering a crossed CTR as a full lateral obstacle (detour fully
+    //      around its polygon, like Restricted/Danger): worked in isolation,
+    //      but combined with a pre-existing Danger Area obstacle nearby it
+    //      overwhelmed A*'s bounding-box-corner-padding node strategy —
+    //      "could not find clear path", a worse outcome than doing nothing.
+    // Investigated all of ENAIRE's structured AIP datasets (issue #9) for a
+    // real corridor-geometry source instead — none exists; VRP/corridor data
+    // is only ever published as VAC chart images, never machine-readable.
+    // kb/es.json's 216 hand-digitized corridor-tagged reporting points
+    // (already loaded as NAMED_FIXES nodes) are therefore the best available
+    // data for this. This iteration doesn't detour around the CTR at all —
+    // it threads *through* those real named nodes, via the ctrCorridorEdge
+    // bypass in isClear() (both endpoints corridor-tagged, not just one —
+    // see the comment there for why "one endpoint" wasn't sufficient). This
+    // sidesteps the A* obstacle-padding-node failure mode entirely: the
+    // CTR is still registered as an obstacle (so a non-corridor edge through
+    // it is rejected), but a valid path only needs to hop between existing
+    // named nodes, not route around the polygon's bounding box.
     //
-    // Registration is deliberately narrow: only a CTR the DIRECT dep->dest
-    // line actually crosses, not every CTR sharing the pilot's altitude
-    // band. A live test against LEMU->LERS (which shares its wide envelope
-    // with ~25 CTRs from Alicante to Zaragoza) showed registering all of
-    // them overwhelms A* — it gave up ("could not find clear path") and
-    // produced a WORSE route (an unresolved Danger Area bust that wasn't
-    // there before) than doing nothing. That's the same "detour around
-    // every CTR" failure mode the project already ruled out once, just
-    // reintroduced behind this opt-in toggle instead of being unconditional.
-    // Scoping to only the CTR(s) actually on the direct line keeps this to
-    // a single, tractable obstacle in the common case.
+    // Two preconditions, both must hold, keeping the "only intervene where
+    // there's concrete evidence" discipline from every prior iteration:
+    //   - the direct dep->dest line actually crosses the CTR (not every CTR
+    //     sharing the pilot's altitude band — that's what caused the 25-CTR
+    //     over-registration failure in iteration 2).
+    //   - the KB has real corridor data near it (>=2 corridor-tagged
+    //     NAMED_FIXES within CTR_CORRIDOR_SEARCH_NM of its centroid) — e.g.
+    //     kb/fr.json has zero corridor points, so no French CTR will ever
+    //     trigger this; today's unchanged behavior applies there.
     const CTR_TYPES = new Set(['CTR']);
+    const CTR_CORRIDOR_SEARCH_NM = 20;
     const ctrInteriorObstacles = [];
     if (opts.avoidCtrInterior) {
+      const corridorFixes = NAMED_FIXES.filter(f => f.corridor);
       for (const item of bandItems) {
         const typ = decodeAirspaceType(item.type);
         if (!CTR_TYPES.has(typ)) continue;
         const poly = extractPolygon(item);
         if (!poly) continue;
         if (!segmentIntersectsPolygon(dep, dest, poly)) continue;
+        const sumLat = poly.reduce((s, [la]) => s + la, 0);
+        const sumLon = poly.reduce((s, [, lo]) => s + lo, 0);
+        const centroid = { lat: sumLat / poly.length, lon: sumLon / poly.length };
+        const nearbyCorridorFixes = corridorFixes.filter(f => haversine(centroid, f) <= CTR_CORRIDOR_SEARCH_NM).length;
+        if (nearbyCorridorFixes < 2) {
+          log(`CTR ${item.name || 'unnamed'}: only ${nearbyCorridorFixes} corridor-tagged fix(es) within ${CTR_CORRIDOR_SEARCH_NM} nm — no real corridor data, leaving as ordinary transit airspace`);
+          continue;
+        }
         ctrInteriorObstacles.push({
           ...item, poly,
           _obsType: typ,
           _cls: decodeIcaoClass(item.icaoClass),
         });
       }
-      log(`${ctrInteriorObstacles.length} CTR${ctrInteriorObstacles.length===1?'':'s'} on the direct dep→dest line registered for detour-around (experimental)`, ctrInteriorObstacles.length ? 'warn' : 'ok');
+      log(`${ctrInteriorObstacles.length} CTR${ctrInteriorObstacles.length===1?'':'s'} on the direct dep→dest line registered for corridor-hop threading (experimental)`, ctrInteriorObstacles.length ? 'warn' : 'ok');
     }
 
     // Overhead-base ceilings: TMA/CTA sectors whose elevated floor caps the
