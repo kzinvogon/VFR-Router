@@ -1134,12 +1134,13 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
   const depIdx = 0, destIdx = 1;
 
   // A segment crosses a controlled-airspace obstacle legally only if the
-  // in-obstacle portion is covered by one or more VFR sectors. Sample densely
-  // enough to catch narrow corridor exits without being too expensive
-  // (O(samples × obstacles × sectors) per edge).
-  const SAMPLES = 40;
+  // in-obstacle portion is covered by one or more VFR sectors. Sample
+  // distance-scaled (roughly every 0.5 nm, 20-500 samples) rather than a
+  // fixed count — a fixed 40 samples over a 100 nm leg misses small shelves.
   function crossingCoveredBySectors(a, b, obsPoly) {
     if (!vfrSectors.length) return false;
+    const distNm = haversine(a, b);
+    const SAMPLES = Math.min(500, Math.max(20, Math.ceil(distNm / 0.5)));
     for (let i = 0; i <= SAMPLES; i++) {
       const t = i / SAMPLES;
       const pt = { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
@@ -1197,22 +1198,22 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
   const g = new Array(n).fill(Infinity);
   const f = new Array(n).fill(Infinity);
   const prev = new Array(n).fill(-1);
-  const open = new Set([depIdx]);
   const closed = new Set();
 
   g[depIdx] = 0;
   f[depIdx] = haversine(nodes[depIdx], nodes[destIdx]);
 
-  let iterations = 0;
-  while (open.size > 0 && iterations++ < 5000) {
-    let cur = -1, curF = Infinity;
-    for (const idx of open) {
-      if (f[idx] < curF) { curF = f[idx]; cur = idx; }
-    }
+  // Lazy-deletion priority queue: stale entries for already-closed nodes are
+  // skipped on pop rather than removed on push. Avoids the fixed 5000-
+  // iteration cap silently truncating search on larger node sets.
+  const open = [{ idx: depIdx, f: f[depIdx] }];
+
+  while (open.length > 0) {
+    open.sort((x, y) => x.f - y.f);
+    const cur = open.shift().idx;
 
     if (cur === destIdx) break;
-
-    open.delete(cur);
+    if (closed.has(cur)) continue;
     closed.add(cur);
 
     for (let nb = 0; nb < n; nb++) {
@@ -1224,7 +1225,7 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
         g[nb] = tentG;
         f[nb] = tentG + haversine(nodes[nb], nodes[destIdx]);
         prev[nb] = cur;
-        open.add(nb);
+        open.push({ idx: nb, f: f[nb] });
       }
     }
   }
