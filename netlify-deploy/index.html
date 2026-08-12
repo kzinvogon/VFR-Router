@@ -1186,6 +1186,9 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
       // Corridor bypass permits Class D/C/E TMA+CTA transit (the AIP-published
       // case). Class A is never corridor-exemptable — VFR is flat-out
       // prohibited inside Class A, no corridor or clearance changes that.
+      // KB hard-avoid rules (e.g. "CTR MADRID civil VFR prohibited") are also
+      // never corridor-exemptable — they're a hard block regardless of class.
+      if (obs._kbHardAvoid) return false;
       if (corridorEdge && (typ === 'TMA' || typ === 'CTA') && cls !== 'A') continue;
       if (ctrCorridorEdge && typ === 'CTR' && cls !== 'A') continue;
       const corridorable = typ === 'TMA' || typ === 'CTR' || typ === 'CTA' || typ === 'MCTR';
@@ -2015,6 +2018,7 @@ async function computeRoute() {
         poly: extractPolygon(item),
         _obsType: decodeAirspaceType(item.type),
         _cls: decodeIcaoClass(item.icaoClass),
+        _kbHardAvoid: !!matchesKbHardAvoid(item),
       }))
       .filter(item => item.poly);
     const verticalClearable = avoidable.length - lateralObstacles.length;
