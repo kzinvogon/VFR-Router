@@ -872,6 +872,55 @@ function decodeAirspaceType(raw) {
   return String(raw).toUpperCase();
 }
 
+// OpenAIP rejects any bbox wider or taller than 5°. Split an oversized bbox
+// into a grid of tiles that each stay under the cap.
+const OPENAIP_MAX_BBOX_DEG = 5;
+function splitBboxTiles(minLon, minLat, maxLon, maxLat) {
+  const tileDeg = OPENAIP_MAX_BBOX_DEG - 0.1; // margin for float rounding
+  const cols = Math.max(1, Math.ceil((maxLon - minLon) / tileDeg));
+  const rows = Math.max(1, Math.ceil((maxLat - minLat) / tileDeg));
+  const lonStep = (maxLon - minLon) / cols;
+  const latStep = (maxLat - minLat) / rows;
+  const tiles = [];
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      tiles.push([
+        minLon + c * lonStep,
+        minLat + r * latStep,
+        c === cols - 1 ? maxLon : minLon + (c + 1) * lonStep,
+        r === rows - 1 ? maxLat : minLat + (r + 1) * latStep,
+      ]);
+    }
+  }
+  return tiles;
+}
+
+// Fetch every page of a bbox query, tiling the bbox first if it exceeds
+// OpenAIP's 5° width/height cap, and dedupe results across tiles by `_id`.
+async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pageLimit, maxPages, itemLabel }) {
+  const tiles = splitBboxTiles(minLon, minLat, maxLon, maxLat);
+  if (tiles.length > 1) log(`bbox exceeds ${OPENAIP_MAX_BBOX_DEG}° cap — split into ${tiles.length} tiles`);
+  const seen = new Map();
+  for (const [tMinLon, tMinLat, tMaxLon, tMaxLat] of tiles) {
+    const bbox = `${tMinLon},${tMinLat},${tMaxLon},${tMaxLat}`;
+    for (let page = 1; page <= maxPages; page++) {
+      const url = `${apiPath}?bbox=${encodeURIComponent(bbox)}&limit=${pageLimit}&page=${page}`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
+      }
+      const data = await resp.json();
+      const items = data.items || [];
+      for (const item of items) seen.set(item._id ?? `${bbox}:${seen.size}`, item);
+      log(`tile ${bbox} page ${page}: +${items.length} ${itemLabel} (running total ${seen.size})`);
+      if (items.length < pageLimit) break;
+      if (page === maxPages) log('pagination cap hit on tile — data may be incomplete', 'warn');
+    }
+  }
+  return [...seen.values()];
+}
+
 async function fetchAirspace(dep, dest) {
   // Pad generously so detours (e.g. via Corsica) stay inside the fetched
   // airspace set. 2.5° ≈ 150 nm of routing flexibility around the great-circle.
@@ -883,24 +932,9 @@ async function fetchAirspace(dep, dest) {
 
   log(`Fetching airspace bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
 
-  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-  const PAGE_LIMIT = 1000;
-  const MAX_PAGES = 10;
-  const all = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `/api/airspaces?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) {
-      const txt = await resp.text();
-      throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
-    }
-    const data = await resp.json();
-    const items = data.items || [];
-    all.push(...items);
-    log(`page ${page}: +${items.length} items (running total ${all.length})`);
-    if (items.length < PAGE_LIMIT) break;
-    if (page === MAX_PAGES) log('pagination cap hit — data may be incomplete', 'warn');
-  }
+  const all = await fetchBboxPaginated('/api/airspaces', minLon, minLat, maxLon, maxLat, {
+    pageLimit: 1000, maxPages: 10, itemLabel: 'airspace items',
+  });
   log(`Received ${all.length} airspace items total`, 'ok');
   return all;
 }
@@ -948,21 +982,10 @@ async function fetchAirportsInBbox(dep, dest) {
   const maxLat = Math.max(dep.lat, dest.lat) + pad;
   const minLon = Math.min(dep.lon, dest.lon) - pad;
   const maxLon = Math.max(dep.lon, dest.lon) + pad;
-  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-  const PAGE_LIMIT = 1000;
-  const MAX_PAGES = 5;
-  const all = [];
   log(`Fetching airports bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `/api/airports?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) { log(`airports fetch HTTP ${resp.status} on page ${page}`, 'warn'); break; }
-    const data = await resp.json();
-    const items = data.items || [];
-    all.push(...items);
-    log(`airports page ${page}: +${items.length} (total ${all.length})`);
-    if (items.length < PAGE_LIMIT) break;
-  }
+  const all = await fetchBboxPaginated('/api/airports', minLon, minLat, maxLon, maxLat, {
+    pageLimit: 1000, maxPages: 5, itemLabel: 'airports',
+  });
   const nodes = [];
   let skippedType = 0, skippedCorridor = 0;
   for (const ap of all) {
