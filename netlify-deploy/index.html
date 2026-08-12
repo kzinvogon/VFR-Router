@@ -500,6 +500,8 @@
         <span>Avoid restricted / prohibited areas</span></label>
       <label class="opt-row"><input type="checkbox" id="optAvoidMilitary" checked>
         <span>Avoid military zones (TSA/TRA/MATZ)</span></label>
+      <label class="opt-row"><input type="checkbox" id="optAvoidCtrInterior">
+        <span>Thread CTR transits via published VFR corridor points (experimental)</span></label>
       <label class="opt-row"><input type="checkbox" id="optSnapFixes" checked>
         <span>Snap turn points to named fixes</span></label>
     </div>
@@ -870,6 +872,55 @@ function decodeAirspaceType(raw) {
   return String(raw).toUpperCase();
 }
 
+// OpenAIP rejects any bbox wider or taller than 5°. Split an oversized bbox
+// into a grid of tiles that each stay under the cap.
+const OPENAIP_MAX_BBOX_DEG = 5;
+function splitBboxTiles(minLon, minLat, maxLon, maxLat) {
+  const tileDeg = OPENAIP_MAX_BBOX_DEG - 0.1; // margin for float rounding
+  const cols = Math.max(1, Math.ceil((maxLon - minLon) / tileDeg));
+  const rows = Math.max(1, Math.ceil((maxLat - minLat) / tileDeg));
+  const lonStep = (maxLon - minLon) / cols;
+  const latStep = (maxLat - minLat) / rows;
+  const tiles = [];
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      tiles.push([
+        minLon + c * lonStep,
+        minLat + r * latStep,
+        c === cols - 1 ? maxLon : minLon + (c + 1) * lonStep,
+        r === rows - 1 ? maxLat : minLat + (r + 1) * latStep,
+      ]);
+    }
+  }
+  return tiles;
+}
+
+// Fetch every page of a bbox query, tiling the bbox first if it exceeds
+// OpenAIP's 5° width/height cap, and dedupe results across tiles by `_id`.
+async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pageLimit, maxPages, itemLabel }) {
+  const tiles = splitBboxTiles(minLon, minLat, maxLon, maxLat);
+  if (tiles.length > 1) log(`bbox exceeds ${OPENAIP_MAX_BBOX_DEG}° cap — split into ${tiles.length} tiles`);
+  const seen = new Map();
+  for (const [tMinLon, tMinLat, tMaxLon, tMaxLat] of tiles) {
+    const bbox = `${tMinLon},${tMinLat},${tMaxLon},${tMaxLat}`;
+    for (let page = 1; page <= maxPages; page++) {
+      const url = `${apiPath}?bbox=${encodeURIComponent(bbox)}&limit=${pageLimit}&page=${page}`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
+      }
+      const data = await resp.json();
+      const items = data.items || [];
+      for (const item of items) seen.set(item._id ?? `${bbox}:${seen.size}`, item);
+      log(`tile ${bbox} page ${page}: +${items.length} ${itemLabel} (running total ${seen.size})`);
+      if (items.length < pageLimit) break;
+      if (page === maxPages) log('pagination cap hit on tile — data may be incomplete', 'warn');
+    }
+  }
+  return [...seen.values()];
+}
+
 async function fetchAirspace(dep, dest) {
   // Pad generously so detours (e.g. via Corsica) stay inside the fetched
   // airspace set. 2.5° ≈ 150 nm of routing flexibility around the great-circle.
@@ -881,24 +932,9 @@ async function fetchAirspace(dep, dest) {
 
   log(`Fetching airspace bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
 
-  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-  const PAGE_LIMIT = 1000;
-  const MAX_PAGES = 10;
-  const all = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `/api/airspaces?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) {
-      const txt = await resp.text();
-      throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
-    }
-    const data = await resp.json();
-    const items = data.items || [];
-    all.push(...items);
-    log(`page ${page}: +${items.length} items (running total ${all.length})`);
-    if (items.length < PAGE_LIMIT) break;
-    if (page === MAX_PAGES) log('pagination cap hit — data may be incomplete', 'warn');
-  }
+  const all = await fetchBboxPaginated('/api/airspaces', minLon, minLat, maxLon, maxLat, {
+    pageLimit: 1000, maxPages: 10, itemLabel: 'airspace items',
+  });
   log(`Received ${all.length} airspace items total`, 'ok');
   return all;
 }
@@ -946,21 +982,10 @@ async function fetchAirportsInBbox(dep, dest) {
   const maxLat = Math.max(dep.lat, dest.lat) + pad;
   const minLon = Math.min(dep.lon, dest.lon) - pad;
   const maxLon = Math.max(dep.lon, dest.lon) + pad;
-  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-  const PAGE_LIMIT = 1000;
-  const MAX_PAGES = 5;
-  const all = [];
   log(`Fetching airports bbox: ${minLat.toFixed(1)},${minLon.toFixed(1)} → ${maxLat.toFixed(1)},${maxLon.toFixed(1)}`);
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `/api/airports?bbox=${encodeURIComponent(bbox)}&limit=${PAGE_LIMIT}&page=${page}`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) { log(`airports fetch HTTP ${resp.status} on page ${page}`, 'warn'); break; }
-    const data = await resp.json();
-    const items = data.items || [];
-    all.push(...items);
-    log(`airports page ${page}: +${items.length} (total ${all.length})`);
-    if (items.length < PAGE_LIMIT) break;
-  }
+  const all = await fetchBboxPaginated('/api/airports', minLon, minLat, maxLon, maxLat, {
+    pageLimit: 1000, maxPages: 5, itemLabel: 'airports',
+  });
   const nodes = [];
   let skippedType = 0, skippedCorridor = 0;
   for (const ap of all) {
@@ -1109,12 +1134,13 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
   const depIdx = 0, destIdx = 1;
 
   // A segment crosses a controlled-airspace obstacle legally only if the
-  // in-obstacle portion is covered by one or more VFR sectors. Sample densely
-  // enough to catch narrow corridor exits without being too expensive
-  // (O(samples × obstacles × sectors) per edge).
-  const SAMPLES = 40;
+  // in-obstacle portion is covered by one or more VFR sectors. Sample
+  // distance-scaled (roughly every 0.5 nm, 20-500 samples) rather than a
+  // fixed count — a fixed 40 samples over a 100 nm leg misses small shelves.
   function crossingCoveredBySectors(a, b, obsPoly) {
     if (!vfrSectors.length) return false;
+    const distNm = haversine(a, b);
+    const SAMPLES = Math.min(500, Math.max(20, Math.ceil(distNm / 0.5)));
     for (let i = 0; i <= SAMPLES; i++) {
       const t = i / SAMPLES;
       const pt = { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
@@ -1130,10 +1156,28 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
 
   // A node-incident corridor edge (either endpoint tagged with a corridor ID)
   // permits transit through TMA/CTA — those are the classes a published VFR
-  // route actually passes through. CTRs and prohibited/restricted still block
-  // even on a corridor edge: published routes go AROUND CTRs, not through.
+  // route actually passes through. Prohibited/restricted still always block.
+  //
+  // CTR gets a stricter version, in two parts — live-tested, both parts
+  // needed:
+  //   1. Both endpoints corridor-tagged: a genuine hop between two published
+  //      VRPs. One corridor point at the end of an arbitrarily long direct
+  //      leg doesn't mean the leg follows the published route — a leg from a
+  //      departure 84 nm away straight into a single Valencia VRP still cuts
+  //      through the CTR's interior, real bug reproduced live.
+  //   2. One endpoint corridor-tagged AND the leg is short (<=
+  //      CTR_ENTRY_LEG_MAX_NM): the departure/destination joining leg to/from
+  //      the nearest VRP. An airport can never itself be corridor-tagged, so
+  //      a strict both-endpoints-only rule made it impossible to ever leave a
+  //      departure near a corridor-required CTR at all — A* failed outright,
+  //      live-tested. Short entry/exit legs are real VFR practice (fly
+  //      airport -> nearest published VRP, then hop VRP to VRP); an 84 nm
+  //      "leg" is not that, hence the distance cap.
+  const CTR_ENTRY_LEG_MAX_NM = 15;
   function isClear(a, b) {
     const corridorEdge = !!(a.corridor || b.corridor);
+    const ctrCorridorEdge = !!(a.corridor && b.corridor) ||
+      (!!(a.corridor || b.corridor) && haversine(a, b) <= CTR_ENTRY_LEG_MAX_NM);
     for (const obs of obstacles) {
       if (!obs.poly) continue;
       if (!segmentIntersectsPolygon(a, b, obs.poly)) continue;
@@ -1142,7 +1186,11 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
       // Corridor bypass permits Class D/C/E TMA+CTA transit (the AIP-published
       // case). Class A is never corridor-exemptable — VFR is flat-out
       // prohibited inside Class A, no corridor or clearance changes that.
+      // KB hard-avoid rules (e.g. "CTR MADRID civil VFR prohibited") are also
+      // never corridor-exemptable — they're a hard block regardless of class.
+      if (obs._kbHardAvoid) return false;
       if (corridorEdge && (typ === 'TMA' || typ === 'CTA') && cls !== 'A') continue;
+      if (ctrCorridorEdge && typ === 'CTR' && cls !== 'A') continue;
       const corridorable = typ === 'TMA' || typ === 'CTR' || typ === 'CTA' || typ === 'MCTR';
       if (!corridorable) return false;
       if (!crossingCoveredBySectors(a, b, obs.poly)) return false;
@@ -1153,22 +1201,22 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
   const g = new Array(n).fill(Infinity);
   const f = new Array(n).fill(Infinity);
   const prev = new Array(n).fill(-1);
-  const open = new Set([depIdx]);
   const closed = new Set();
 
   g[depIdx] = 0;
   f[depIdx] = haversine(nodes[depIdx], nodes[destIdx]);
 
-  let iterations = 0;
-  while (open.size > 0 && iterations++ < 5000) {
-    let cur = -1, curF = Infinity;
-    for (const idx of open) {
-      if (f[idx] < curF) { curF = f[idx]; cur = idx; }
-    }
+  // Lazy-deletion priority queue: stale entries for already-closed nodes are
+  // skipped on pop rather than removed on push. Avoids the fixed 5000-
+  // iteration cap silently truncating search on larger node sets.
+  const open = [{ idx: depIdx, f: f[depIdx] }];
+
+  while (open.length > 0) {
+    open.sort((x, y) => x.f - y.f);
+    const cur = open.shift().idx;
 
     if (cur === destIdx) break;
-
-    open.delete(cur);
+    if (closed.has(cur)) continue;
     closed.add(cur);
 
     for (let nb = 0; nb < n; nb++) {
@@ -1180,7 +1228,7 @@ function computePath(dep, dest, obstacles, vfrSectors = [], extraNodes = []) {
         g[nb] = tentG;
         f[nb] = tentG + haversine(nodes[nb], nodes[destIdx]);
         prev[nb] = cur;
-        open.add(nb);
+        open.push({ idx: nb, f: f[nb] });
       }
     }
   }
@@ -1844,6 +1892,7 @@ async function computeRoute() {
     avoidDanger:         document.getElementById('optAvoidDanger').checked,
     avoidRestricted:     document.getElementById('optAvoidRestricted').checked,
     avoidMilitary:       document.getElementById('optAvoidMilitary').checked,
+    avoidCtrInterior:    document.getElementById('optAvoidCtrInterior').checked,
     snapFixes:           document.getElementById('optSnapFixes').checked,
   };
 
@@ -1969,6 +2018,7 @@ async function computeRoute() {
         poly: extractPolygon(item),
         _obsType: decodeAirspaceType(item.type),
         _cls: decodeIcaoClass(item.icaoClass),
+        _kbHardAvoid: !!matchesKbHardAvoid(item),
       }))
       .filter(item => item.poly);
     const verticalClearable = avoidable.length - lateralObstacles.length;
@@ -1982,6 +2032,68 @@ async function computeRoute() {
       .map(i => ({ name: i.name, poly: extractPolygon(i) }))
       .filter(i => i.poly);
     log(`${vfrSectorPolys.length} VFR sector corridor${vfrSectorPolys.length===1?'':'s'} available`);
+
+    // Experimental (opt-in, unchecked by default — see optAvoidCtrInterior).
+    // Third iteration of this mechanism — the first two failed live testing:
+    //   1. Gating on live OpenAIP VFR_SECTOR polygon coverage: a no-op —
+    //      mainland Spain has ~0 such polygons (confirmed against real
+    //      production data: 2 in the whole LEMU-LERS corridor's 30 CTRs,
+    //      both near Mallorca).
+    //   2. Registering a crossed CTR as a full lateral obstacle (detour fully
+    //      around its polygon, like Restricted/Danger): worked in isolation,
+    //      but combined with a pre-existing Danger Area obstacle nearby it
+    //      overwhelmed A*'s bounding-box-corner-padding node strategy —
+    //      "could not find clear path", a worse outcome than doing nothing.
+    // Investigated all of ENAIRE's structured AIP datasets (issue #9) for a
+    // real corridor-geometry source instead — none exists; VRP/corridor data
+    // is only ever published as VAC chart images, never machine-readable.
+    // kb/es.json's 216 hand-digitized corridor-tagged reporting points
+    // (already loaded as NAMED_FIXES nodes) are therefore the best available
+    // data for this. This iteration doesn't detour around the CTR at all —
+    // it threads *through* those real named nodes, via the ctrCorridorEdge
+    // bypass in isClear() (both endpoints corridor-tagged, not just one —
+    // see the comment there for why "one endpoint" wasn't sufficient). This
+    // sidesteps the A* obstacle-padding-node failure mode entirely: the
+    // CTR is still registered as an obstacle (so a non-corridor edge through
+    // it is rejected), but a valid path only needs to hop between existing
+    // named nodes, not route around the polygon's bounding box.
+    //
+    // Two preconditions, both must hold, keeping the "only intervene where
+    // there's concrete evidence" discipline from every prior iteration:
+    //   - the direct dep->dest line actually crosses the CTR (not every CTR
+    //     sharing the pilot's altitude band — that's what caused the 25-CTR
+    //     over-registration failure in iteration 2).
+    //   - the KB has real corridor data near it (>=2 corridor-tagged
+    //     NAMED_FIXES within CTR_CORRIDOR_SEARCH_NM of its centroid) — e.g.
+    //     kb/fr.json has zero corridor points, so no French CTR will ever
+    //     trigger this; today's unchanged behavior applies there.
+    const CTR_TYPES = new Set(['CTR']);
+    const CTR_CORRIDOR_SEARCH_NM = 20;
+    const ctrInteriorObstacles = [];
+    if (opts.avoidCtrInterior) {
+      const corridorFixes = NAMED_FIXES.filter(f => f.corridor);
+      for (const item of bandItems) {
+        const typ = decodeAirspaceType(item.type);
+        if (!CTR_TYPES.has(typ)) continue;
+        const poly = extractPolygon(item);
+        if (!poly) continue;
+        if (!segmentIntersectsPolygon(dep, dest, poly)) continue;
+        const sumLat = poly.reduce((s, [la]) => s + la, 0);
+        const sumLon = poly.reduce((s, [, lo]) => s + lo, 0);
+        const centroid = { lat: sumLat / poly.length, lon: sumLon / poly.length };
+        const nearbyCorridorFixes = corridorFixes.filter(f => haversine(centroid, f) <= CTR_CORRIDOR_SEARCH_NM).length;
+        if (nearbyCorridorFixes < 2) {
+          log(`CTR ${item.name || 'unnamed'}: only ${nearbyCorridorFixes} corridor-tagged fix(es) within ${CTR_CORRIDOR_SEARCH_NM} nm — no real corridor data, leaving as ordinary transit airspace`);
+          continue;
+        }
+        ctrInteriorObstacles.push({
+          ...item, poly,
+          _obsType: typ,
+          _cls: decodeIcaoClass(item.icaoClass),
+        });
+      }
+      log(`${ctrInteriorObstacles.length} CTR${ctrInteriorObstacles.length===1?'':'s'} on the direct dep→dest line registered for corridor-hop threading (experimental)`, ctrInteriorObstacles.length ? 'warn' : 'ok');
+    }
 
     // Overhead-base ceilings: TMA/CTA sectors whose elevated floor caps the
     // legal no-clearance VFR altitude wherever the route passes beneath them.
@@ -2060,7 +2172,7 @@ async function computeRoute() {
     // airspace is promoted to a lateral obstacle and A* re-runs, forcing a
     // lateral deviation.
     const itemKey = it => `${it.name||'?'}|${it.type}|${it.icaoClass}`;
-    const hardObstacles = [...lateralObstacles];
+    const hardObstacles = [...lateralObstacles, ...ctrInteriorObstacles];
     const hardKeys = new Set(hardObstacles.map(itemKey));
 
     // Corpus-first: if (dep, dest) matches a pilot-validated route in the KB,
