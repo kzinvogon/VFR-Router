@@ -577,6 +577,7 @@
 // Known airport coordinates
 const AIRPORTS = {
   LEMU: { lat: 38.2822, lon: -0.5519, name: 'Muchamiel' },
+  LEAX: { lat: 36.8017, lon: -4.1356, name: 'La Axarquía-Leoni Benabu' },
   LFMD: { lat: 43.5469, lon:  7.0003, name: 'Cannes-Mandelieu' },
   LEIB: { lat: 38.8729, lon:  1.3731, name: 'Ibiza' },
   LEPA: { lat: 39.5517, lon:  2.7388, name: 'Palma' },
@@ -1858,16 +1859,20 @@ function populateWarningList(warnings) {
 async function resolveAirportByIcao(icao) {
   if (!icao) return null;
   try {
-    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=10`);
+    // Widen the limit: OpenAIP's `search` is fuzzy and name-ranked, so a small
+    // GA field (e.g. LEAX / La Axarquía) can be pushed past a limit of 10 by
+    // unrelated fuzzy hits. Normalise every result and match on the code
+    // normalizeAirport derives — the raw record may carry the ICAO under `icao`
+    // rather than `icaoCode`, which the old exact `a.icaoCode` test missed.
+    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=50`);
     if (!resp.ok) return null;
     const data = await resp.json();
-    const items = Array.isArray(data) ? data : (data.items || []);
-    const hit = items.find(a => (a.icaoCode || '').toUpperCase() === icao);
+    const rawItems = Array.isArray(data) ? data : (data.items || data.data || []);
+    const norm = rawItems.map(normalizeAirport).filter(Boolean);
+    const hit = norm.find(a => a.icao === icao) || norm.find(a => a.iata === icao);
     if (!hit) return null;
-    const ap = normalizeAirport(hit);
-    if (!ap) return null;
-    AIRPORTS[ap.code] = { lat: ap.lat, lon: ap.lon, name: ap.name };
-    return AIRPORTS[ap.code];
+    AIRPORTS[hit.code] = { lat: hit.lat, lon: hit.lon, name: hit.name };
+    return AIRPORTS[hit.code];
   } catch (e) {
     return null;
   }
