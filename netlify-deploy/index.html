@@ -899,10 +899,11 @@ function splitBboxTiles(minLon, minLat, maxLon, maxLat) {
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 // Fetch one bbox/page URL, retrying on OpenAIP 429s with backoff (honoring
-// Retry-After when the proxy forwards one). Tiling fans out several requests
-// per route (up to 4 tiles × 2 concurrent fetch kinds), which is enough to
-// trip OpenAIP's burst limiter even though total volume is modest.
-const BBOX_FETCH_MAX_RETRIES = 4;
+// Retry-After when the proxy forwards one). A large tiled bbox can fan out
+// into a dozen-plus upstream requests for one route, which is enough to
+// trip OpenAIP's rate limit for a sustained window (not just a brief burst)
+// — bare-HTML 429 pages carry no Retry-After, so backoff has to be generous.
+const BBOX_FETCH_MAX_RETRIES = 6;
 async function fetchWithRetry429(url, label) {
   for (let attempt = 0; ; attempt++) {
     const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -911,7 +912,7 @@ async function fetchWithRetry429(url, label) {
     const retryAfterHdr = parseFloat(resp.headers.get('retry-after'));
     const waitMs = Number.isFinite(retryAfterHdr)
       ? retryAfterHdr * 1000
-      : 500 * Math.pow(2, attempt) + Math.random() * 250;
+      : Math.min(20000, 500 * Math.pow(2, attempt)) + Math.random() * 250;
     log(`${label}: OpenAIP 429 — retry ${attempt + 1}/${BBOX_FETCH_MAX_RETRIES} in ${(waitMs / 1000).toFixed(1)}s`, 'warn');
     await sleep(waitMs);
   }
@@ -1957,10 +1958,12 @@ async function computeRoute() {
 
   const warnings = [];
   try {
-    const [allItems, airportNodes] = await Promise.all([
-      fetchAirspace(dep, dest),
-      fetchAirportsInBbox(dep, dest).catch(e => { log(`airports fetch failed: ${e.message}`, 'warn'); return []; }),
-    ]);
+    // Sequential, not concurrent: each fetch already tiles into several
+    // OpenAIP requests, and running both bbox fetches at once doubles the
+    // peak request rate against OpenAIP's rate limit for no real benefit.
+    const allItems = await fetchAirspace(dep, dest);
+    const airportNodes = await fetchAirportsInBbox(dep, dest)
+      .catch(e => { log(`airports fetch failed: ${e.message}`, 'warn'); return []; });
     log(`Received ${airportNodes.length} airports in bbox as A* turn-points`, 'ok');
 
     const bandItems = filterToAltBand(allItems, altFloorFt, altCeilingFt);

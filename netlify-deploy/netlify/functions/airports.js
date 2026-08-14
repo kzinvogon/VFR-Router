@@ -3,6 +3,8 @@
 //   ?search=<str>  typeahead — needs ≥2 chars
 //   ?bbox=...      bulk in-region for A* turn-points
 
+import { getCachedResponse, setCachedResponse } from './_lib/openaip-cache.js';
+
 const UPSTREAM = 'https://api.core.openaip.net/api/airports';
 
 export default async (req) => {
@@ -23,6 +25,16 @@ export default async (req) => {
   const qs = new URLSearchParams({ limit, page });
   if (search) qs.set('search', search);
   if (bbox)   qs.set('bbox',   bbox);
+  const cacheKey = `airports:${qs.toString()}`;
+
+  const cached = await getCachedResponse(cacheKey);
+  if (cached) {
+    return new Response(cached.body, {
+      status: cached.status,
+      headers: { 'content-type': 'application/json', 'x-cache': 'HIT' },
+    });
+  }
+
   const upstream = `${UPSTREAM}?${qs.toString()}`;
 
   try {
@@ -31,7 +43,8 @@ export default async (req) => {
       signal: AbortSignal.timeout(15000),
     });
     const body = await r.text();
-    const headers = { 'content-type': 'application/json' };
+    if (r.ok) await setCachedResponse(cacheKey, r.status, body);
+    const headers = { 'content-type': 'application/json', 'x-cache': 'MISS' };
     const retryAfter = r.headers.get('retry-after');
     if (retryAfter) headers['retry-after'] = retryAfter;
     return new Response(body, { status: r.status, headers });
