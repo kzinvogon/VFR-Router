@@ -31,10 +31,10 @@ export default async (req) => {
       signal: AbortSignal.timeout(15000),
     });
     const body = await r.text();
-    return new Response(body, {
-      status: r.status,
-      headers: { 'content-type': 'application/json' },
-    });
+    const headers = { 'content-type': 'application/json' };
+    const retryAfter = r.headers.get('retry-after');
+    if (retryAfter) headers['retry-after'] = retryAfter;
+    return new Response(body, { status: r.status, headers });
   } catch (err) {
     return json({ error: err?.message || 'upstream error' }, 502);
   }

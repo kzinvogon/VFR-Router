@@ -896,6 +896,27 @@ function splitBboxTiles(minLon, minLat, maxLon, maxLat) {
   return tiles;
 }
 
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+// Fetch one bbox/page URL, retrying on OpenAIP 429s with backoff (honoring
+// Retry-After when the proxy forwards one). Tiling fans out several requests
+// per route (up to 4 tiles × 2 concurrent fetch kinds), which is enough to
+// trip OpenAIP's burst limiter even though total volume is modest.
+const BBOX_FETCH_MAX_RETRIES = 4;
+async function fetchWithRetry429(url, label) {
+  for (let attempt = 0; ; attempt++) {
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (resp.status !== 429) return resp;
+    if (attempt >= BBOX_FETCH_MAX_RETRIES) return resp;
+    const retryAfterHdr = parseFloat(resp.headers.get('retry-after'));
+    const waitMs = Number.isFinite(retryAfterHdr)
+      ? retryAfterHdr * 1000
+      : 500 * Math.pow(2, attempt) + Math.random() * 250;
+    log(`${label}: OpenAIP 429 — retry ${attempt + 1}/${BBOX_FETCH_MAX_RETRIES} in ${(waitMs / 1000).toFixed(1)}s`, 'warn');
+    await sleep(waitMs);
+  }
+}
+
 // Fetch every page of a bbox query, tiling the bbox first if it exceeds
 // OpenAIP's 5° width/height cap, and dedupe results across tiles by `_id`.
 async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pageLimit, maxPages, itemLabel }) {
@@ -906,7 +927,7 @@ async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pag
     const bbox = `${tMinLon},${tMinLat},${tMaxLon},${tMaxLat}`;
     for (let page = 1; page <= maxPages; page++) {
       const url = `${apiPath}?bbox=${encodeURIComponent(bbox)}&limit=${pageLimit}&page=${page}`;
-      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const resp = await fetchWithRetry429(url, `tile ${bbox} page ${page}`);
       if (!resp.ok) {
         const txt = await resp.text();
         throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
