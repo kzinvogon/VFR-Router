@@ -577,6 +577,7 @@
 // Known airport coordinates
 const AIRPORTS = {
   LEMU: { lat: 38.2822, lon: -0.5519, name: 'Muchamiel' },
+  LEAX: { lat: 36.8017, lon: -4.1356, name: 'La Axarquía-Leoni Benabu' },
   LFMD: { lat: 43.5469, lon:  7.0003, name: 'Cannes-Mandelieu' },
   LEIB: { lat: 38.8729, lon:  1.3731, name: 'Ibiza' },
   LEPA: { lat: 39.5517, lon:  2.7388, name: 'Palma' },
@@ -895,6 +896,27 @@ function splitBboxTiles(minLon, minLat, maxLon, maxLat) {
   return tiles;
 }
 
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+// Fetch one bbox/page URL, retrying on OpenAIP 429s with backoff (honoring
+// Retry-After when the proxy forwards one). Tiling fans out several requests
+// per route (up to 4 tiles × 2 concurrent fetch kinds), which is enough to
+// trip OpenAIP's burst limiter even though total volume is modest.
+const BBOX_FETCH_MAX_RETRIES = 4;
+async function fetchWithRetry429(url, label) {
+  for (let attempt = 0; ; attempt++) {
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (resp.status !== 429) return resp;
+    if (attempt >= BBOX_FETCH_MAX_RETRIES) return resp;
+    const retryAfterHdr = parseFloat(resp.headers.get('retry-after'));
+    const waitMs = Number.isFinite(retryAfterHdr)
+      ? retryAfterHdr * 1000
+      : 500 * Math.pow(2, attempt) + Math.random() * 250;
+    log(`${label}: OpenAIP 429 — retry ${attempt + 1}/${BBOX_FETCH_MAX_RETRIES} in ${(waitMs / 1000).toFixed(1)}s`, 'warn');
+    await sleep(waitMs);
+  }
+}
+
 // Fetch every page of a bbox query, tiling the bbox first if it exceeds
 // OpenAIP's 5° width/height cap, and dedupe results across tiles by `_id`.
 async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pageLimit, maxPages, itemLabel }) {
@@ -905,7 +927,7 @@ async function fetchBboxPaginated(apiPath, minLon, minLat, maxLon, maxLat, { pag
     const bbox = `${tMinLon},${tMinLat},${tMaxLon},${tMaxLat}`;
     for (let page = 1; page <= maxPages; page++) {
       const url = `${apiPath}?bbox=${encodeURIComponent(bbox)}&limit=${pageLimit}&page=${page}`;
-      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const resp = await fetchWithRetry429(url, `tile ${bbox} page ${page}`);
       if (!resp.ok) {
         const txt = await resp.text();
         throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
@@ -1858,16 +1880,20 @@ function populateWarningList(warnings) {
 async function resolveAirportByIcao(icao) {
   if (!icao) return null;
   try {
-    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=10`);
+    // Widen the limit: OpenAIP's `search` is fuzzy and name-ranked, so a small
+    // GA field (e.g. LEAX / La Axarquía) can be pushed past a limit of 10 by
+    // unrelated fuzzy hits. Normalise every result and match on the code
+    // normalizeAirport derives — the raw record may carry the ICAO under `icao`
+    // rather than `icaoCode`, which the old exact `a.icaoCode` test missed.
+    const resp = await fetch(`/api/airports?search=${encodeURIComponent(icao)}&limit=50`);
     if (!resp.ok) return null;
     const data = await resp.json();
-    const items = Array.isArray(data) ? data : (data.items || []);
-    const hit = items.find(a => (a.icaoCode || '').toUpperCase() === icao);
+    const rawItems = Array.isArray(data) ? data : (data.items || data.data || []);
+    const norm = rawItems.map(normalizeAirport).filter(Boolean);
+    const hit = norm.find(a => a.icao === icao) || norm.find(a => a.iata === icao);
     if (!hit) return null;
-    const ap = normalizeAirport(hit);
-    if (!ap) return null;
-    AIRPORTS[ap.code] = { lat: ap.lat, lon: ap.lon, name: ap.name };
-    return AIRPORTS[ap.code];
+    AIRPORTS[hit.code] = { lat: hit.lat, lon: hit.lon, name: hit.name };
+    return AIRPORTS[hit.code];
   } catch (e) {
     return null;
   }

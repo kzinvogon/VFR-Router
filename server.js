@@ -92,10 +92,12 @@ const server = http.createServer((req, res) => {
       proxyRes.on('data', chunk => body += chunk);
       proxyRes.on('end', () => {
         console.log(`OpenAIP responded: ${proxyRes.statusCode}, ${body.length} bytes`);
-        res.writeHead(proxyRes.statusCode, {
+        const headers = {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
-        });
+        };
+        if (proxyRes.headers['retry-after']) headers['Retry-After'] = proxyRes.headers['retry-after'];
+        res.writeHead(proxyRes.statusCode, headers);
         res.end(body);
       });
     });
@@ -153,10 +155,12 @@ const server = http.createServer((req, res) => {
       let body = '';
       apRes.on('data', c => body += c);
       apRes.on('end', () => {
-        res.writeHead(apRes.statusCode, {
+        const headers = {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
-        });
+        };
+        if (apRes.headers['retry-after']) headers['Retry-After'] = apRes.headers['retry-after'];
+        res.writeHead(apRes.statusCode, headers);
         res.end(body);
       });
     });
