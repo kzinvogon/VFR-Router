@@ -669,10 +669,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 const map = L.map('map', { zoomControl: true }).setView([41.2, 3.5], 6);
 
-const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_DARK  = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const TILE_LIGHT = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
 let tileLayer = L.tileLayer(TILE_DARK, {
-  attribution: '© OpenStreetMap © CARTO',
+  attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors',
   maxZoom: 14
 }).addTo(map);
 
@@ -682,7 +682,7 @@ function applyTheme(theme) {
   if (btn) btn.textContent = theme === 'light' ? 'Dark' : 'Light';
   map.removeLayer(tileLayer);
   tileLayer = L.tileLayer(theme === 'light' ? TILE_LIGHT : TILE_DARK, {
-    attribution: '© OpenStreetMap © CARTO',
+    attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors',
     maxZoom: 14
   }).addTo(map);
   try { localStorage.setItem('vfrRouterTheme', theme); } catch(e) {}
