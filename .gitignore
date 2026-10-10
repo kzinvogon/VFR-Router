@@ -4,5 +4,4 @@ node_modules/
 .env
 .env.*
 .claude/
-VFR Maps*/
 skydemo imports/
