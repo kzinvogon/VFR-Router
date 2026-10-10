@@ -1,0 +1,2 @@
+VFR[[:space:]]Maps[[:space:]]*/*.zip filter=lfs diff=lfs merge=lfs -text
+VFR[[:space:]]Maps[[:space:]]*/*.pdf filter=lfs diff=lfs merge=lfs -text
