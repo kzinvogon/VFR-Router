@@ -888,6 +888,11 @@ async function fetchAirspace(dep, dest) {
     const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
     if (!resp.ok) {
       const txt = await resp.text();
+      // OpenAIP sits behind Cloudflare; a bare-HTML 403 is its edge blocking
+      // the proxy's IP (typically after sustained 429s), not a bad API key.
+      if (resp.status === 403 && /^\s*<!doctype html/i.test(txt)) {
+        throw new Error('OpenAIP 403: request blocked by OpenAIP\'s Cloudflare edge (likely a temporary rate-limit ban on the proxy IP) — wait and retry later');
+      }
       throw new Error(`OpenAIP ${resp.status}: ${txt.slice(0,120)}`);
     }
     const data = await resp.json();
